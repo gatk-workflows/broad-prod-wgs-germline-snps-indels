@@ -1,0 +1,9 @@
+{
+  "read_from_cache":true,
+  "write_to_cache":true,
+  "workflow_failure_mode" : "ContinueWhilePossible",
+  "default_runtime_attributes": {
+    "zones": "us-central1-a us-central1-b us-central1-c us-central1-f",
+    "docker": "broadinstitute/genomes-in-the-cloud:2.3.1-1504795437"
+  }
+}
