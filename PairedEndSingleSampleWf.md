@@ -18,7 +18,7 @@ data.
 
 ### Version notes
 
-This workflow replaces the `PublicPairedSingleSampleWf_170412.wdl` workflow. The processing done on the data is functionally equivalent; the major change in this new version consists in some technical refactoring that delivers significant cost optimizations on the Google Cloud Platform (GCP). This workflow will NOT run on other platforms due to the use of Google NIO; see below for details. 
+This workflow replaces the `PublicPairedSingleSampleWf_170412.wdl` workflow that was previously deposited in the WDL repository. The processing done on the data is functionally equivalent; the major change in this new version consists in some technical refactoring that delivers significant cost optimizations on the Google Cloud Platform (GCP). This workflow will NOT run on other platforms due to the use of Google NIO; see below for details. 
 
 ----
 
