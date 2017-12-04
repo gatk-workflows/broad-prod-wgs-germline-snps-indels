@@ -18,10 +18,8 @@
 ## page at https://hub.docker.com/r/broadinstitute/genomes-in-the-cloud/ for detailed
 ## licensing information pertaining to the included programs.
 
-# WORKFLOW DEFINITION
 workflow JointGenotyping {
   File unpadded_intervals_file
-  Array[String] unpadded_intervals = read_lines(unpadded_intervals_file)
 
   String callset_name
   File sample_name_map
@@ -35,6 +33,7 @@ workflow JointGenotyping {
 
   Int small_disk
   Int medium_disk
+  Int large_disk
   Int huge_disk
 
   Array[String] snp_recalibration_tranche_values
@@ -63,8 +62,22 @@ workflow JointGenotyping {
   Float indel_filter_level
   Int SNP_VQSR_downsampleFactor
 
-  scatter (idx in range(length(unpadded_intervals))) {
+  Int num_of_original_intervals = length(read_lines(unpadded_intervals_file))
+  Int num_gvcfs = length(read_lines(sample_name_map))
 
+  # Make a 2.5:1 interval number to samples in callset ratio interval list
+  Int possible_merge_count = floor(num_of_original_intervals / num_gvcfs / 2.5)
+  Int merge_count = if possible_merge_count > 1 then possible_merge_count else 1
+
+  call DynamicallyCombineIntervals {
+    input:
+      intervals = unpadded_intervals_file,
+      merge_count = merge_count
+  }
+
+  Array[String] unpadded_intervals = read_lines(DynamicallyCombineIntervals.output_intervals)
+
+  scatter (idx in range(length(unpadded_intervals))) {
     # the batch_size value was carefully chosen here as it
     # is the optimal value for the amount of memory allocated
     # within the task; please do not change it without consulting
@@ -104,7 +117,6 @@ workflow JointGenotyping {
   call GatherVcfs as SitesOnlyGatherVcf {
     input:
       input_vcfs_fofn = write_lines(HardFilterAndMakeSitesOnlyVcf.sites_only_vcf),
-      input_vcf_indexes_fofn = write_lines(HardFilterAndMakeSitesOnlyVcf.sites_only_vcf_index),
       output_vcf_name = callset_name + ".sites_only.vcf.gz",
       disk_size = medium_disk
   }
@@ -148,34 +160,37 @@ workflow JointGenotyping {
   }
 
   scatter (idx in range(length(HardFilterAndMakeSitesOnlyVcf.sites_only_vcf))) {
-
     call SNPsVariantRecalibratorScattered {
-        input:
-          sites_only_variant_filtered_vcf = HardFilterAndMakeSitesOnlyVcf.sites_only_vcf[idx],
-          sites_only_variant_filtered_vcf_index = HardFilterAndMakeSitesOnlyVcf.sites_only_vcf_index[idx],
-          recalibration_filename = callset_name + ".snps." + idx + ".recal",
-          tranches_filename = callset_name + ".snps." + idx + ".tranches",
-          recalibration_tranche_values = snp_recalibration_tranche_values,
-          recalibration_annotation_values = snp_recalibration_annotation_values,
-          model_report = SNPsVariantRecalibratorCreateModel.model_report,
-          hapmap_resource_vcf = hapmap_resource_vcf,
-          hapmap_resource_vcf_index = hapmap_resource_vcf_index,
-          omni_resource_vcf = omni_resource_vcf,
-          omni_resource_vcf_index = omni_resource_vcf_index,
-          one_thousand_genomes_resource_vcf = one_thousand_genomes_resource_vcf,
-          one_thousand_genomes_resource_vcf_index = one_thousand_genomes_resource_vcf_index,
-          dbsnp_resource_vcf = dbsnp_resource_vcf,
-          dbsnp_resource_vcf_index = dbsnp_resource_vcf_index,
-          disk_size = small_disk
+      input:
+        sites_only_variant_filtered_vcf = HardFilterAndMakeSitesOnlyVcf.sites_only_vcf[idx],
+        sites_only_variant_filtered_vcf_index = HardFilterAndMakeSitesOnlyVcf.sites_only_vcf_index[idx],
+        recalibration_filename = callset_name + ".snps." + idx + ".recal",
+        tranches_filename = callset_name + ".snps." + idx + ".tranches",
+        recalibration_tranche_values = snp_recalibration_tranche_values,
+        recalibration_annotation_values = snp_recalibration_annotation_values,
+        model_report = SNPsVariantRecalibratorCreateModel.model_report,
+        hapmap_resource_vcf = hapmap_resource_vcf,
+        hapmap_resource_vcf_index = hapmap_resource_vcf_index,
+        omni_resource_vcf = omni_resource_vcf,
+        omni_resource_vcf_index = omni_resource_vcf_index,
+        one_thousand_genomes_resource_vcf = one_thousand_genomes_resource_vcf,
+        one_thousand_genomes_resource_vcf_index = one_thousand_genomes_resource_vcf_index,
+        dbsnp_resource_vcf = dbsnp_resource_vcf,
+        dbsnp_resource_vcf_index = dbsnp_resource_vcf_index,
+        disk_size = small_disk
       }
   }
 
   call GatherTranches as SNPGatherTranches {
-  input:
-       input_fofn = write_lines(SNPsVariantRecalibratorScattered.tranches),
-       output_filename = callset_name + ".snps.gathered.tranches",
-       disk_size = small_disk
+    input:
+      input_fofn = write_lines(SNPsVariantRecalibratorScattered.tranches),
+      output_filename = callset_name + ".snps.gathered.tranches",
+      disk_size = small_disk
   }
+
+  # For small callsets (fewer than 1000 samples) we can gather the VCF shards and collect metrics directly.
+  # For anything larger, we need to keep the VCF sharded and gather metrics collected from them.
+  Boolean is_small_callset = num_gvcfs <= 1000
 
   scatter (idx in range(length(HardFilterAndMakeSitesOnlyVcf.variant_filtered_vcf))) {
     call ApplyRecalibration {
@@ -194,38 +209,84 @@ workflow JointGenotyping {
         disk_size = medium_disk
     }
 
-    call CollectVariantCallingMetrics {
-      input:
-	input_vcf = ApplyRecalibration.recalibrated_vcf,
-      	input_vcf_index = ApplyRecalibration.recalibrated_vcf_index,
-      	metrics_filename_prefix = callset_name + "." + idx,
-      	dbsnp_vcf = dbsnp_vcf,
-      	dbsnp_vcf_index = dbsnp_vcf_index,
-      	interval_list = eval_interval_list,
-      	ref_dict = ref_dict,
-      	disk_size = small_disk
+    # for large callsets we need to collect metrics from the shards and gather them later
+    if (!is_small_callset) {
+      call CollectVariantCallingMetrics as CollectMetricsSharded {
+        input:
+          input_vcf = ApplyRecalibration.recalibrated_vcf,
+          input_vcf_index = ApplyRecalibration.recalibrated_vcf_index,
+          metrics_filename_prefix = callset_name + "." + idx,
+          dbsnp_vcf = dbsnp_vcf,
+          dbsnp_vcf_index = dbsnp_vcf_index,
+          interval_list = eval_interval_list,
+          ref_dict = ref_dict,
+          disk_size = medium_disk
+      }
     }
   }
 
-  call GatherVcfs as FinalGatherVcf {
-    input:
-      input_vcfs_fofn = write_lines(ApplyRecalibration.recalibrated_vcf),
-      input_vcf_indexes_fofn = write_lines(ApplyRecalibration.recalibrated_vcf_index),
-      output_vcf_name = callset_name + ".vcf.gz",
-      disk_size = huge_disk
+  # for small callsets we can gather the VCF shards and then collect metrics on it
+  if (is_small_callset) {
+    call GatherVcfs as FinalGatherVcf {
+      input:
+        input_vcfs_fofn = write_lines(ApplyRecalibration.recalibrated_vcf),
+        output_vcf_name = callset_name + ".vcf.gz",
+        disk_size = huge_disk
+    }
+
+    call CollectVariantCallingMetrics as CollectMetricsOnFullVcf {
+      input:
+        input_vcf = FinalGatherVcf.output_vcf,
+        input_vcf_index = FinalGatherVcf.output_vcf_index,
+        metrics_filename_prefix = callset_name,
+        dbsnp_vcf = dbsnp_vcf,
+        dbsnp_vcf_index = dbsnp_vcf_index,
+        interval_list = eval_interval_list,
+        ref_dict = ref_dict,
+        disk_size = large_disk
+    }
   }
 
-  call GatherMetrics {
-    input:
-      input_details_fofn = write_lines(CollectVariantCallingMetrics.detail_metrics_file),
-      input_summaries_fofn = write_lines(CollectVariantCallingMetrics.summary_metrics_file),
-      output_prefix = callset_name,
-      disk_size = medium_disk
+  # for large callsets we still need to gather the sharded metrics
+  if (!is_small_callset) {
+    call GatherMetrics {
+      input:
+        input_details_fofn = write_lines(select_all(CollectMetricsSharded.detail_metrics_file)),
+        input_summaries_fofn = write_lines(select_all(CollectMetricsSharded.summary_metrics_file)),
+        output_prefix = callset_name,
+        disk_size = medium_disk
+    }
   }
 
   output {
-    FinalGatherVcf.*
-    GatherMetrics.*
+    # outputs from the small callset path through the wdl
+    FinalGatherVcf.output_vcf
+    FinalGatherVcf.output_vcf_index
+    CollectMetricsOnFullVcf.detail_metrics_file
+    CollectMetricsOnFullVcf.summary_metrics_file
+
+    # outputs from the large callset path through the wdl
+    # (note that we do not list ApplyRecalibration here because it is run in both paths)
+    GatherMetrics.detail_metrics_file
+    GatherMetrics.summary_metrics_file
+
+    # output the interval list generated/used by this run workflow
+    DynamicallyCombineIntervals.output_intervals
+  }
+}
+
+task GetNumberOfSamples {
+  File sample_name_map
+
+  command <<<
+    wc -l ${sample_name_map} | awk '{print $1}'
+  >>>
+  runtime {
+    memory: "1 GB"
+    preemptible: 5
+  }
+  output {
+    Int sample_count = read_int(stdout())
   }
 }
 
@@ -239,7 +300,6 @@ task ImportGVCFs {
   Int batch_size
 
   command <<<
-
     set -e
 
     rm -rf ${workspace_dir_name}
@@ -265,6 +325,7 @@ task ImportGVCFs {
     memory: "7 GB"
     cpu: "2"
     disks: "local-disk " + disk_size + " HDD"
+    preemptible: 5
   }
   output {
     File output_genomicsdb = "${workspace_dir_name}.tar"
@@ -286,7 +347,6 @@ task GenotypeGVCFs {
   Int disk_size
 
   command <<<
-
     set -e
 
     tar -xf ${workspace_tar}
@@ -307,7 +367,7 @@ task GenotypeGVCFs {
     memory: "7 GB"
     cpu: "2"
     disks: "local-disk " + disk_size + " HDD"
-    preemptible: 1
+    preemptible: 5
   }
   output {
     File output_vcf = "${output_vcf_filename}"
@@ -345,7 +405,7 @@ task HardFilterAndMakeSitesOnlyVcf {
     memory: "3.5 GB"
     cpu: "1"
     disks: "local-disk " + disk_size + " HDD"
-    preemptible: 3
+    preemptible: 5
   }
   output {
     File variant_filtered_vcf = "${variant_filtered_vcf_filename}"
@@ -393,7 +453,7 @@ task IndelsVariantRecalibrator {
     memory: "26 GB"
     cpu: "2"
     disks: "local-disk " + disk_size + " HDD"
-    preemptible: 3
+    preemptible: 5
   }
   output {
     File recalibration = "${recalibration_filename}"
@@ -426,7 +486,6 @@ task SNPsVariantRecalibratorCreateModel {
   Int disk_size
 
   command {
-
     /usr/gitc/gatk-launch --javaOptions "-Xmx100g -Xms100g" \
       VariantRecalibrator \
       -V ${sites_only_variant_filtered_vcf} \
@@ -448,7 +507,7 @@ task SNPsVariantRecalibratorCreateModel {
     memory: "104 GB"
     cpu: "2"
     disks: "local-disk " + disk_size + " HDD"
-    preemptible: 3
+    preemptible: 5
   }
   output {
     File model_report = "${model_report_filename}"
@@ -478,7 +537,6 @@ task SNPsVariantRecalibratorScattered {
   Int disk_size
 
   command {
-
     /usr/gitc/gatk-launch --javaOptions "-Xmx3g -Xms3g" \
       VariantRecalibrator \
       -V ${sites_only_variant_filtered_vcf} \
@@ -500,7 +558,7 @@ task SNPsVariantRecalibratorScattered {
     memory: "3.5 GB"
     cpu: "2"
     disks: "local-disk " + disk_size + " HDD"
-    preemptible: 3
+    preemptible: 5
   }
   output {
     File recalibration = "${recalibration_filename}"
@@ -545,7 +603,7 @@ task GatherTranches {
     memory: "7 GB"
     cpu: "2"
     disks: "local-disk " + disk_size + " HDD"
-    preemptible: 3
+    preemptible: 5
   }
   output {
     File tranches = "${output_filename}"
@@ -595,7 +653,7 @@ task ApplyRecalibration {
     memory: "7 GB"
     cpu: "1"
     disks: "local-disk " + disk_size + " HDD"
-    preemptible: 3
+    preemptible: 5
   }
   output {
     File recalibrated_vcf = "${recalibrated_vcf_filename}"
@@ -604,51 +662,21 @@ task ApplyRecalibration {
 }
 
 task GatherVcfs {
-
   File input_vcfs_fofn
-  File input_vcf_indexes_fofn
-
   String output_vcf_name
 
   Int disk_size
 
   command <<<
     set -e
-    set -o pipefail
 
-    # this is here to deal with the JES bug where commands may be run twice
-    rm -rf vcfs
+    # Now using NIO to localize the vcfs but the input file must have a ".list" extension
+    mv ${input_vcfs_fofn} inputs.list
 
-    mkdir vcfs
-    RETRY_LIMIT=5
-
-    count=0
-    until cat ${input_vcfs_fofn} | /root/google-cloud-sdk/bin/gsutil -m cp -L cp.log -c -I vcfs/; do
-        sleep 1
-        ((count++)) && ((count >= $RETRY_LIMIT)) && break
-    done
-    if [ "$count" -ge "$RETRY_LIMIT" ]; then
-        echo 'Could not copy all the vcfs from the cloud' && exit 1
-    fi
-
-    count=0
-    until cat ${input_vcf_indexes_fofn} | /root/google-cloud-sdk/bin/gsutil -m cp -L cp.log -c -I vcfs/; do
-        sleep 1
-        ((count++)) && ((count >= $RETRY_LIMIT)) && break
-    done
-    if [ "$count" -ge "$RETRY_LIMIT" ]; then
-        echo 'Could not copy all the indexes from the cloud' && exit 1
-    fi
-
-    cat ${input_vcfs_fofn} | rev | cut -d '/' -f 1 | rev | awk '{print "vcfs/" $1}' > inputs.list
-
-    # the various flags to disable safety checks are not ideal but are
-    # (temporarily) necessary until Intel fixes a bug in GenomicsDB
-    # which outputs contigs out of order in the VCF header
+    # ignoreSafetyChecks make a big performance difference so we include it in our invocation
     /usr/gitc/gatk-launch --javaOptions "-Xmx6g -Xms6g" \
-    GatherVcfs \
+    GatherVcfsCloud \
     --ignoreSafetyChecks \
-    --disableContigOrderingCheck \
     --gatherType BLOCK \
     --input inputs.list \
     --output ${output_vcf_name}
@@ -659,7 +687,7 @@ task GatherVcfs {
     memory: "7 GB"
     cpu: "1"
     disks: "local-disk " + disk_size + " HDD"
-    preemptible: 3
+    preemptible: 5
   }
   output {
     File output_vcf = "${output_vcf_name}"
@@ -697,12 +725,11 @@ task CollectVariantCallingMetrics {
     memory: "7 GB"
     cpu: 2
     disks: "local-disk " + disk_size + " HDD"
-    preemptible: 3
+    preemptible: 5
   }
 }
 
 task GatherMetrics {
-
   File input_details_fofn
   File input_summaries_fofn
 
@@ -740,19 +767,84 @@ task GatherMetrics {
 
     INPUT=`cat ${input_details_fofn} | rev | cut -d '/' -f 1 | rev | sed s/.variant_calling_detail_metrics//g | awk '{printf("I=metrics/%s ", $1)}'`
 
-    java -Xmx14g -Xms14g -jar /usr/gitc/picard.jar \
+    java -Xmx2g -Xms2g -jar /usr/gitc/picard.jar \
     AccumulateVariantCallingMetrics \
     $INPUT \
     O= ${output_prefix}
   >>>
   runtime {
-    memory: "15 GB"
+    memory: "3 GB"
     cpu: "1"
     disks: "local-disk " + disk_size + " HDD"
-    preemptible: 3
+    preemptible: 5
   }
   output {
     File detail_metrics_file = "${output_prefix}.variant_calling_detail_metrics"
     File summary_metrics_file = "${output_prefix}.variant_calling_summary_metrics"
+  }
+}
+
+task DynamicallyCombineIntervals {
+  File intervals
+  Int merge_count
+
+  command {
+    python << CODE
+    def parse_interval(interval):
+        colon_split = interval.split(":")
+        chromosome = colon_split[0]
+        dash_split = colon_split[1].split("-")
+        start = int(dash_split[0])
+        end = int(dash_split[1])
+        return chromosome, start, end
+
+    def add_interval(chr, start, end):
+        lines_to_write.append(chr + ":" + str(start) + "-" + str(end))
+        return chr, start, end
+
+    count = 0
+    chain_count = ${merge_count}
+    l_chr, l_start, l_end = "", 0, 0
+    lines_to_write = []
+    with open("${intervals}") as f:
+        with open("out.intervals", "w") as f1:
+            for line in f.readlines():
+                # initialization
+                if count == 0:
+                    w_chr, w_start, w_end = parse_interval(line)
+                    count = 1
+                    continue
+                # reached number to combine, so spit out and start over
+                if count == chain_count:
+                    l_char, l_start, l_end = add_interval(w_chr, w_start, w_end)
+                    w_chr, w_start, w_end = parse_interval(line)
+                    count = 1
+                    continue
+
+                c_chr, c_start, c_end = parse_interval(line)
+                # if adjacent keep the chain going
+                if c_chr == w_chr and c_start == w_end + 1:
+                    w_end = c_end
+                    count += 1
+                    continue
+                # not adjacent, end here and start a new chain
+                else:
+                    l_char, l_start, l_end = add_interval(w_chr, w_start, w_end)
+                    w_chr, w_start, w_end = parse_interval(line)
+                    count = 1
+            if l_char != w_chr or l_start != w_start or l_end != w_end:
+                add_interval(w_chr, w_start, w_end)
+            f1.writelines("\n".join(lines_to_write))
+    CODE
+  }
+
+  runtime {
+    memory: "3 GB"
+    preemptible: 5
+    docker: "python:2.7"
+  }
+
+  output {
+    File output_intervals = "out.intervals"
   }
 }

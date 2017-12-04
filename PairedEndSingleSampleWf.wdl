@@ -39,7 +39,7 @@ workflow PairedEndSingleSampleWorkflow {
 
   String sample_name
   String base_file_name
-  String final_gvcf_name
+  String final_gvcf_base_name
   Array[File] flowcell_unmapped_bams
   String unmapped_bam_suffix
 
@@ -69,13 +69,12 @@ workflow PairedEndSingleSampleWorkflow {
   # Optional input to increase all disk sizes in case of outlier sample with strange size behavior
   Int? increase_disk_size
 
-  # Some input files can be less than 1GB, therefore we need to add 1 to prevent getting a cromwell error when asking for 0 disk
-  Int small_additional_disk = select_first([increase_disk_size, 1])
-  # Some tasks need more wiggle room than a single GB when the input bam is small
-  Int medium_additional_disk = select_first([increase_disk_size, 5])
+  # Some tasks need wiggle room, and we also need to add a small amount of disk to prevent getting a
+  # Cromwell error from asking for 0 disk when the input is less than 1GB
+  Int additional_disk = select_first([increase_disk_size, 20])
   # Germline single sample GVCFs shouldn't get bigger even when the input bam is bigger (after a certain size)
   Int GVCF_disk_size = select_first([increase_disk_size, 30])
-  # Sometimes the output is larger than the input, or a task can spill to disk. In these cases we need to account for the 
+  # Sometimes the output is larger than the input, or a task can spill to disk. In these cases we need to account for the
   # input (1) and the output (1.5) or the input(1), the output(1), and spillage (.5).
   Float bwa_disk_multiplier = 2.5
   # SortSam spills to disk a lot more because we are only store 300000 records in RAM now because its faster for our data
@@ -86,6 +85,11 @@ workflow PairedEndSingleSampleWorkflow {
   # Mark Duplicates takes in as input readgroup bams and outputs a slightly smaller aggregated bam. Giving .25 as wiggleroom
   Float md_disk_multiplier = 2.25
 
+  # ValidateSamFile runs out of memory in mate validation on crazy edge case data, so we want to skip the mate validation
+  # in those cases.  These values set the thresholds for what is considered outside the normal realm of "reasonable" data.
+  Float max_duplication_in_reasonable_sample = 0.30
+  Float max_chimerism_in_reasonable_sample = 0.15
+
   String bwa_commandline="bwa mem -K 100000000 -p -v 3 -t 16 -Y $bash_ref_fasta"
 
   String recalibrated_bam_basename = base_file_name + ".aligned.duplicates_marked.recalibrated"
@@ -95,12 +99,6 @@ workflow PairedEndSingleSampleWorkflow {
   # Get the version of BWA to include in the PG record in the header of the BAM produced
   # by MergeBamAlignment.
   call GetBwaVersion
-
-  # Check that the GVCF output name follows convention
-  call CheckFinalVcfExtension {
-     input:
-        vcf_filename = final_gvcf_name
-   }
 
   # Get the size of the standard reference files as well as the additional reference files needed for BWA
   Float ref_size = size(ref_fasta, "GB") + size(ref_fasta_index, "GB") + size(ref_dict, "GB")
@@ -121,7 +119,7 @@ workflow PairedEndSingleSampleWorkflow {
       input:
         input_bam = unmapped_bam,
         metrics_filename = sub_sub + ".unmapped.quality_yield_metrics",
-        disk_size = unmapped_bam_size + small_additional_disk,
+        disk_size = unmapped_bam_size + additional_disk,
         preemptible_tries = preemptible_tries
     }
 
@@ -143,7 +141,7 @@ workflow PairedEndSingleSampleWorkflow {
         bwa_version = GetBwaVersion.version,
         # The merged bam can be bigger than only the aligned bam,
         # so account for the output size by multiplying the input size by 2.75.
-        disk_size = unmapped_bam_size + bwa_ref_size + (bwa_disk_multiplier * unmapped_bam_size) + small_additional_disk,
+        disk_size = unmapped_bam_size + bwa_ref_size + (bwa_disk_multiplier * unmapped_bam_size) + additional_disk,
         compression_level = compression_level,
         preemptible_tries = preemptible_tries
     }
@@ -156,7 +154,7 @@ workflow PairedEndSingleSampleWorkflow {
       input:
         input_bam = SamToFastqAndBwaMemAndMba.output_bam,
         output_bam_prefix = sub_sub + ".readgroup",
-        disk_size = mapped_bam_size + medium_additional_disk,
+        disk_size = mapped_bam_size + additional_disk,
         preemptible_tries = preemptible_tries
     }
   }
@@ -178,7 +176,7 @@ workflow PairedEndSingleSampleWorkflow {
       metrics_filename = base_file_name + ".duplicate_metrics",
       # The merged bam will be smaller than the sum of the parts so we need to account for the unmerged inputs
       # and the merged output.
-      disk_size = (md_disk_multiplier * SumFloats.total_size) + small_additional_disk,
+      disk_size = (md_disk_multiplier * SumFloats.total_size) + additional_disk,
       compression_level = compression_level,
       preemptible_tries = agg_preemptible_tries
   }
@@ -191,7 +189,7 @@ workflow PairedEndSingleSampleWorkflow {
       input_bam = MarkDuplicates.output_bam,
       output_bam_basename = base_file_name + ".aligned.duplicate_marked.sorted",
       # This task spills to disk so we need space for the input bam, the output bam, and any spillage.
-      disk_size = (sort_sam_disk_multiplier * agg_bam_size) + small_additional_disk,
+      disk_size = (sort_sam_disk_multiplier * agg_bam_size) + additional_disk,
       compression_level = compression_level,
       preemptible_tries = agg_preemptible_tries
   }
@@ -203,8 +201,8 @@ workflow PairedEndSingleSampleWorkflow {
         input_bams = SortSampleBam.output_bam,
         input_bam_indexes = SortSampleBam.output_bam_index,
         haplotype_database_file = haplotype_database_file,
-        metrics_filename = sample_name + ".crosscheck",
-        disk_size = agg_bam_size + small_additional_disk,
+        metrics_filename = base_file_name + ".crosscheck",
+        disk_size = agg_bam_size + additional_disk,
         preemptible_tries = agg_preemptible_tries
     }
   }
@@ -227,7 +225,7 @@ workflow PairedEndSingleSampleWorkflow {
       ref_fasta = ref_fasta,
       ref_fasta_index = ref_fasta_index,
       output_prefix = base_file_name + ".preBqsr",
-      disk_size = agg_bam_size + ref_size + small_additional_disk,
+      disk_size = agg_bam_size + ref_size + additional_disk,
       preemptible_tries = agg_preemptible_tries,
       contamination_underestimation_factor = 0.75
   }
@@ -236,7 +234,7 @@ workflow PairedEndSingleSampleWorkflow {
   # If we take the number we are scattering by and reduce by 3 we will have enough disk space
   # to account for the fact that the data is not split evenly.
   Int num_of_bqsr_scatters = length(CreateSequenceGroupingTSV.sequence_grouping)
-  Int potential_bqsr_divisor = num_of_bqsr_scatters - 3
+  Int potential_bqsr_divisor = num_of_bqsr_scatters - 10
   Int bqsr_divisor = if potential_bqsr_divisor > 1 then potential_bqsr_divisor else 1
 
   # Perform Base Quality Score Recalibration (BQSR) on the sorted BAM in parallel
@@ -255,7 +253,7 @@ workflow PairedEndSingleSampleWorkflow {
         ref_fasta = ref_fasta,
         ref_fasta_index = ref_fasta_index,
         # We need disk to localize the sharded bam due to the scatter.
-        disk_size = (agg_bam_size / bqsr_divisor) + ref_size + dbsnp_size + small_additional_disk,
+        disk_size = (agg_bam_size / bqsr_divisor) + ref_size + dbsnp_size + additional_disk,
         preemptible_tries = agg_preemptible_tries
     }
   }
@@ -266,7 +264,7 @@ workflow PairedEndSingleSampleWorkflow {
     input:
       input_bqsr_reports = BaseRecalibrator.recalibration_report,
       output_report_filename = base_file_name + ".recal_data.csv",
-      disk_size = medium_additional_disk,
+      disk_size = additional_disk,
       preemptible_tries = preemptible_tries
   }
 
@@ -282,7 +280,7 @@ workflow PairedEndSingleSampleWorkflow {
         ref_fasta = ref_fasta,
         ref_fasta_index = ref_fasta_index,
         # We need disk to localize the sharded bam and the sharded output due to the scatter.
-        disk_size = ((agg_bam_size + agg_bam_size) / bqsr_divisor) + ref_size + small_additional_disk,
+        disk_size = ((agg_bam_size * 3) / bqsr_divisor) + ref_size + additional_disk,
         compression_level = compression_level,
         preemptible_tries = agg_preemptible_tries
     }
@@ -294,7 +292,7 @@ workflow PairedEndSingleSampleWorkflow {
       input_bams = ApplyBQSR.recalibrated_bam,
       output_bam_basename = base_file_name,
       # Multiply the input bam size by two to account for the input and output
-      disk_size = (2 * agg_bam_size) + small_additional_disk,
+      disk_size = (2 * agg_bam_size) + additional_disk,
       compression_level = compression_level,
       preemptible_tries = agg_preemptible_tries
   }
@@ -311,7 +309,7 @@ workflow PairedEndSingleSampleWorkflow {
       ref_dict = ref_dict,
       ref_fasta = ref_fasta,
       ref_fasta_index = ref_fasta_index,
-      disk_size = binned_qual_bam_size + ref_size + small_additional_disk,
+      disk_size = binned_qual_bam_size + ref_size + additional_disk,
       preemptible_tries = agg_preemptible_tries
   }
 
@@ -324,7 +322,7 @@ workflow PairedEndSingleSampleWorkflow {
       ref_dict = ref_dict,
       ref_fasta = ref_fasta,
       ref_fasta_index = ref_fasta_index,
-      disk_size = binned_qual_bam_size + ref_size + small_additional_disk,
+      disk_size = binned_qual_bam_size + ref_size + additional_disk,
       preemptible_tries = agg_preemptible_tries
   }
 
@@ -338,7 +336,7 @@ workflow PairedEndSingleSampleWorkflow {
         genotypes = fingerprint_genotypes_file,
         output_basename = base_file_name,
         sample = sample_name,
-        disk_size = binned_qual_bam_size + small_additional_disk,
+        disk_size = binned_qual_bam_size + additional_disk,
         preemptible_tries = agg_preemptible_tries
     }
   }
@@ -353,7 +351,7 @@ workflow PairedEndSingleSampleWorkflow {
       ref_fasta_index = ref_fasta_index,
       wgs_coverage_interval_list = wgs_coverage_interval_list,
       read_length = read_length,
-      disk_size = binned_qual_bam_size + ref_size + small_additional_disk,
+      disk_size = binned_qual_bam_size + ref_size + additional_disk,
       preemptible_tries = agg_preemptible_tries
   }
 
@@ -367,7 +365,7 @@ workflow PairedEndSingleSampleWorkflow {
       ref_fasta_index = ref_fasta_index,
       wgs_coverage_interval_list = wgs_coverage_interval_list,
       read_length = read_length,
-      disk_size = binned_qual_bam_size + ref_size + small_additional_disk,
+      disk_size = binned_qual_bam_size + ref_size + additional_disk,
       preemptible_tries = agg_preemptible_tries
   }
 
@@ -377,7 +375,7 @@ workflow PairedEndSingleSampleWorkflow {
       input_bam = GatherBamFiles.output_bam,
       input_bam_index = GatherBamFiles.output_bam_index,
       read_group_md5_filename = recalibrated_bam_basename + ".bam.read_group_md5",
-      disk_size = binned_qual_bam_size + small_additional_disk,
+      disk_size = binned_qual_bam_size + additional_disk,
       preemptible_tries = agg_preemptible_tries
   }
 
@@ -388,13 +386,21 @@ workflow PairedEndSingleSampleWorkflow {
       ref_fasta = ref_fasta,
       ref_fasta_index = ref_fasta_index,
       output_basename = base_file_name,
-      # We need more wiggle room for small samples (for example if binned_qual_bam_size is < 1) and
-      # multiplying the input size by 2 to account for the output cram.
-      disk_size = (2 * binned_qual_bam_size) + ref_size + medium_additional_disk,
+      disk_size = (2 * binned_qual_bam_size) + ref_size + additional_disk,
       preemptible_tries = agg_preemptible_tries
   }
 
   Float cram_size = size(ConvertToCram.output_cram, "GB")
+
+  # Check whether the data has massively high duplication or chimerism rates
+  call CheckPreValidation {
+    input:
+      duplication_metrics = MarkDuplicates.duplicate_metrics,
+      chimerism_metrics = CollectAggregationMetrics.alignment_summary_metrics,
+      max_duplication_in_reasonable_sample = max_duplication_in_reasonable_sample,
+      max_chimerism_in_reasonable_sample = max_chimerism_in_reasonable_sample,
+      preemptible_tries = agg_preemptible_tries
+ }
 
   # Validate the CRAM file
   call ValidateSamFile as ValidateCram {
@@ -407,7 +413,8 @@ workflow PairedEndSingleSampleWorkflow {
       ref_fasta_index = ref_fasta_index,
       ignore = ["MISSING_TAG_NM"],
       max_output = 1000000000,
-      disk_size = cram_size + ref_size + small_additional_disk,
+      is_outlier_data = CheckPreValidation.is_outlier_data,
+      disk_size = cram_size + ref_size + additional_disk,
       preemptible_tries = agg_preemptible_tries
   }
 
@@ -434,12 +441,12 @@ workflow PairedEndSingleSampleWorkflow {
         contamination = CheckContamination.contamination,
         input_bam = GatherBamFiles.output_bam,
         interval_list = ScatterIntervalList.out[index],
-        gvcf_basename = sample_name,
+        gvcf_basename = base_file_name,
         ref_dict = ref_dict,
         ref_fasta = ref_fasta,
         ref_fasta_index = ref_fasta_index,
         # Divide the total output GVCF size and the input bam size to account for the smaller scattered input and output.
-        disk_size = ((binned_qual_bam_size + GVCF_disk_size) / hc_divisor) + ref_size + small_additional_disk,
+        disk_size = ((binned_qual_bam_size + GVCF_disk_size) / hc_divisor) + ref_size + additional_disk,
         preemptible_tries = agg_preemptible_tries
      }
   }
@@ -449,7 +456,7 @@ workflow PairedEndSingleSampleWorkflow {
     input:
       input_vcfs = HaplotypeCaller.output_gvcf,
       input_vcfs_indexes = HaplotypeCaller.output_gvcf_index,
-      output_vcf_name = final_gvcf_name,
+      output_vcf_name = final_gvcf_base_name + ".g.vcf.gz",
       disk_size = GVCF_disk_size,
       preemptible_tries = agg_preemptible_tries
   }
@@ -467,7 +474,7 @@ workflow PairedEndSingleSampleWorkflow {
       ref_fasta_index = ref_fasta_index,
       ref_dict = ref_dict,
       wgs_calling_interval_list = wgs_calling_interval_list,
-      disk_size = gvcf_size + ref_size + dbsnp_size + small_additional_disk,
+      disk_size = gvcf_size + ref_size + dbsnp_size + additional_disk,
       preemptible_tries = agg_preemptible_tries
   }
 
@@ -476,12 +483,12 @@ workflow PairedEndSingleSampleWorkflow {
     input:
       input_vcf = MergeVCFs.output_vcf,
       input_vcf_index = MergeVCFs.output_vcf_index,
-      metrics_basename = base_file_name,
+      metrics_basename = final_gvcf_base_name,
       dbSNP_vcf = dbSNP_vcf,
       dbSNP_vcf_index = dbSNP_vcf_index,
       ref_dict = ref_dict,
       wgs_evaluation_interval_list = wgs_evaluation_interval_list,
-      disk_size = gvcf_size + dbsnp_size + small_additional_disk,
+      disk_size = gvcf_size + dbsnp_size + additional_disk,
       preemptible_tries = agg_preemptible_tries
   }
 
@@ -506,6 +513,7 @@ workflow PairedEndSingleSampleWorkflow {
     File? cross_check_fingerprints_metrics = CrossCheckFingerprints.metrics
 
     File selfSM = CheckContamination.selfSM
+    Float contamination = CheckContamination.contamination
 
     File calculate_read_group_checksum_md5 = CalculateReadGroupChecksum.md5_file
 
@@ -555,7 +563,7 @@ task CollectQualityYieldMetrics {
   Int preemptible_tries
 
   command {
-    java -Xms128m -jar /usr/gitc/picard.jar \
+    java -Xms2000m -jar /usr/gitc/picard.jar \
       CollectQualityYieldMetrics \
       INPUT=${input_bam} \
       OQ=true \
@@ -563,34 +571,11 @@ task CollectQualityYieldMetrics {
   }
   runtime {
     disks: "local-disk " + sub(disk_size, "\\..*", "") + " HDD"
-    memory: "2 GB"
+    memory: "3 GB"
     preemptible: preemptible_tries
   }
   output {
     File metrics = "${metrics_filename}"
-  }
-}
-
-# Check the assumption that the final GVCF filename that is going to be used ends with .g.vcf.gz
-task CheckFinalVcfExtension {
-  String vcf_filename
-
-  command <<<
-    python <<CODE
-    import os
-    import sys
-    filename="${vcf_filename}"
-    if not filename.endswith(".g.vcf.gz"):
-      raise Exception("input","gvcf output filename must end with '.g.vcf.gz', found %s"%(filename))
-      sys.exit(1)
-    CODE
-  >>>
-  runtime {
-    docker: "python:2.7"
-    memory: "2 GB"
-  }
-  output {
-    String common_suffix=read_string(stdout())
   }
 }
 
@@ -1149,6 +1134,52 @@ task GatherBamFiles {
   }
 }
 
+task CheckPreValidation {
+    File duplication_metrics
+    File chimerism_metrics
+    Float max_duplication_in_reasonable_sample
+    Float max_chimerism_in_reasonable_sample
+    Int preemptible_tries
+
+  command <<<
+    set -o pipefail
+    set -e
+
+    grep -A 1 PERCENT_DUPLICATION ${duplication_metrics} > duplication.csv
+    grep -A 3 PCT_CHIMERAS ${chimerism_metrics} | grep -v OF_PAIR > chimerism.csv
+
+    python <<CODE
+
+    import csv
+    with open('duplication.csv') as dupfile:
+      reader = csv.DictReader(dupfile, delimiter='\t')
+      for row in reader:
+        with open("duplication_value.txt","w") as file:
+          file.write(row['PERCENT_DUPLICATION'])
+          file.close()
+
+    with open('chimerism.csv') as chimfile:
+      reader = csv.DictReader(chimfile, delimiter='\t')
+      for row in reader:
+        with open("chimerism_value.txt","w") as file:
+          file.write(row['PCT_CHIMERAS'])
+          file.close()
+
+    CODE
+
+  >>>
+  runtime {
+    preemptible: preemptible_tries
+    docker: "python:2.7"
+    memory: "2 GB"
+  }
+  output {
+    Float duplication_rate = read_float("duplication_value.txt")
+    Float chimerism_rate = read_float("chimerism_value.txt")
+    Boolean is_outlier_data = duplication_rate > max_duplication_in_reasonable_sample || chimerism_rate > max_chimerism_in_reasonable_sample
+  }
+}
+
 task ValidateSamFile {
   File input_bam
   File? input_bam_index
@@ -1158,6 +1189,7 @@ task ValidateSamFile {
   File ref_fasta_index
   Int? max_output
   Array[String]? ignore
+  Boolean? is_outlier_data
   Float disk_size
   Int preemptible_tries
 
@@ -1170,6 +1202,7 @@ task ValidateSamFile {
       ${"MAX_OUTPUT=" + max_output} \
       IGNORE=${default="null" sep=" IGNORE=" ignore} \
       MODE=VERBOSE \
+      ${default='SKIP_MATE_VALIDATION=false' true='SKIP_MATE_VALIDATION=true' false='SKIP_MATE_VALIDATION=false' is_outlier_data} \
       IS_BISULFITE_SEQUENCED=false
   }
   runtime {
@@ -1343,7 +1376,7 @@ task CheckContamination {
     preemptible: preemptible_tries
     memory: "2 GB"
     disks: "local-disk " + sub(disk_size, "\\..*", "") + " HDD"
-    docker: "broadinstitute/verify-bam-id:c8a66425c312e5f8be46ab0c41f8d7a1942b6e16-1500298351"
+    docker: "us.gcr.io/broad-gotc-prod/verify-bam-id:c8a66425c312e5f8be46ab0c41f8d7a1942b6e16-1500298351"
   }
   output {
     File selfSM = "${output_prefix}.selfSM"
