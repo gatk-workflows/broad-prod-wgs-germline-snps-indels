@@ -17,7 +17,10 @@ Indel discovery in human whole-genome sequencing (WGS) data.
 - - all reads must have an RG tag
 - Reference genome must be Hg38 with ALT contigs
 #### Outputs 
-- GVCF output names must end in ".g.vcf.gz"
+- Cram, cram index, and cram md5 
+- GVCF and its gvcf index 
+- BQSR Report
+- Several Summary Metrics 
 
 ### joint-discovery-gatk :
 The second WDL implements the joint discovery and VQSR 
@@ -25,13 +28,15 @@ filtering portion of the GATK Best Practices (June 2016) for germline SNP and In
 discovery in human whole-genome sequencing (WGS) and exome sequencing data.
 
 #### Requirements/expectations
-- One or more GVCFs produced by HaplotypeCaller in GVCF mode
+- One or more GVCFs produced by HaplotypeCaller in GVCF mode.
 - Bare minimum 1 WGS sample or 30 Exome samples. Gene panels are not supported.
 #### Outputs 
-- A VCF file and its index, filtered using variant quality score recalibration  
+- VCF  and its vcf index
+ *Note: The gvcf is filtered using variant quality score recalibration  
   (VQSR) with genotypes for all samples present in the input VCF. All sites that  
   are present in the input VCF are retained; filtered sites are annotated as such  
-  in the FILTER field.
+  in the FILTER field.*
+- Summary Metrics
 
 ### Software version requirements :
 - GATK 4.beta.3 or later 

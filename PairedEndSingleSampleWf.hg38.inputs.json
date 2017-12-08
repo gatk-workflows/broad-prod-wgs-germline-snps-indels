@@ -2,10 +2,10 @@
   "##_COMMENT1": "Take note of the .64 extensions on the reference files, issues between 32 and 64 bit OS",
 
   "##_COMMENT2": "SAMPLE NAME AND UNMAPPED BAMS - read the README to find other examples.",
-  "PairedEndSingleSampleWorkflow.sample_name": "",
-  "PairedEndSingleSampleWorkflow.base_file_name": "",
-  "PairedEndSingleSampleWorkflow.flowcell_unmapped_bams": [],
-  "PairedEndSingleSampleWorkflow.final_gvcf_name": "",
+  "PairedEndSingleSampleWorkflow.sample_name": "String",
+  "PairedEndSingleSampleWorkflow.base_file_name": "String",
+  "PairedEndSingleSampleWorkflow.flowcell_unmapped_bams": ["File"],
+  "PairedEndSingleSampleWorkflow.final_gvcf_base_name": "",
   "PairedEndSingleSampleWorkflow.unmapped_bam_suffix": ".bam",
 
   "##_COMMENT3": "REFERENCES",
@@ -38,7 +38,7 @@
   "PairedEndSingleSampleWorkflow.wgs_evaluation_interval_list": "gs://broad-references/hg38/v0/wgs_evaluation_regions.hg38.interval_list",
 
   "##_COMMENT4": "PRIVATE REFERENCES",
-  "PairedEndSingleSampleWorkflow.haplotype_database_file": "gs://gatk-aas-test-data/small/empty.vcf",
+  "##PairedEndSingleSampleWorkflow.haplotype_database_file": "gs://gatk-aas-test-data/small/empty.vcf",
 
   "##_COMMENT5": "DISK SIZES + MISC",
   "PairedEndSingleSampleWorkflow.flowcell_small_disk": 100,
@@ -47,5 +47,9 @@
   "PairedEndSingleSampleWorkflow.agg_medium_disk": 300,
   "PairedEndSingleSampleWorkflow.agg_large_disk": 400,
   "PairedEndSingleSampleWorkflow.preemptible_tries": 3,
-  "PairedEndSingleSampleWorkflow.agg_preemptible_tries": 3
+  "PairedEndSingleSampleWorkflow.agg_preemptible_tries": 3,
+
+  "##_COMMENT6": "MISC",
+  "PairedEndSingleSampleWorkflow.break_bands_at_multiples_of": 1000000,
+  "PairedEndSingleSampleWorkflow.haplotype_scatter_count": 50 
 }

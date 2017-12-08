@@ -14,6 +14,64 @@ calling (GVCF generation) according to the GATK Best Practices (June 2016) for g
 - GVCF output names must end in ".g.vcf.gz"
 - Reference genome must be provided with an index of ALT contigs
 
+### List of Output files being generated :
+    quality_yield_metrics 
+
+    unsorted_read_group_base_distribution_by_cycle_pdf
+    unsorted_read_group_base_distribution_by_cycle_metrics 
+    unsorted_read_group_insert_size_histogram_pdf 
+    unsorted_read_group_insert_size_metrics 
+    unsorted_read_group_quality_by_cycle_pdf 
+    unsorted_read_group_quality_by_cycle_metrics 
+    unsorted_read_group_quality_distribution_pdf
+    unsorted_read_group_quality_distribution_metrics 
+
+    read_group_alignment_summary_metrics 
+    read_group_gc_bias_detail_metrics 
+    read_group_gc_bias_pdf 
+    read_group_gc_bias_summary_metrics 
+
+    cross_check_fingerprints_metrics 
+
+    contamination  selfSM 
+    contamination 
+
+    calculate_read_group_checksum_md5 
+
+    Aggregation alignment_summary_metrics 
+    Aggregation bait_bias_detail_metrics 
+    Aggregation bait_bias_summary_metrics 
+    Aggregation gc_bias_detail_metrics 
+    Aggregation gc_bias_pdf 
+    Aggregation gc_bias_summary_metrics 
+    Aggregation insert_size_histogram_pdf 
+    Aggregation insert_size_metrics 
+    Aggregation pre_adapter_detail_metrics 
+    Aggregation pre_adapter_summary_metrics 
+    Aggregation quality_distribution_pdf 
+    Aggregation quality_distribution_metrics 
+
+    File? fingerprint_summary_metrics 
+    File? fingerprint_detail_metrics 
+
+    wgs_metrics 
+    raw_wgs_metrics 
+
+    gvcf_summary_metrics
+    gvcf_detail_metrics 
+
+    duplicate_metrics 
+    output_bqsr_reports 
+
+    output_cram 
+    output_cram_index 
+    output_cram_md5 
+
+    validate_cram_file_report 
+
+    output_vcf 
+    output_vcf_index 
+
 ### Version notes
 
 This workflow replaces the `PublicPairedSingleSampleWf_170412.wdl` workflow that was previously deposited in the WDL repository. The processing done on the data is functionally equivalent; the major change in this new version consists in some technical refactoring that delivers significant cost optimizations on the Google Cloud Platform (GCP). This workflow will NOT run on other platforms due to the use of Google NIO; see below for details. 
