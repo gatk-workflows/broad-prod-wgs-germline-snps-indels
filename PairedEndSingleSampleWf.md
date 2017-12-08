@@ -15,62 +15,71 @@ calling (GVCF generation) according to the GATK Best Practices (June 2016) for g
 - Reference genome must be provided with an index of ALT contigs
 
 ### List of Output files being generated :
-    quality_yield_metrics 
+ 
+Unsorted Read Group PDF and Metrics
+ - base distribution by cycle pdf
+ - base distribution by cycle metrics 
+ - insert size histogram pdf 
+ - insert size metrics 
+ - quality by cycle pdf 
+ - quality by cycle metrics 
+ - quality distribution pdf
+ - quality distribution metrics 
 
-    unsorted_read_group_base_distribution_by_cycle_pdf
-    unsorted_read_group_base_distribution_by_cycle_metrics 
-    unsorted_read_group_insert_size_histogram_pdf 
-    unsorted_read_group_insert_size_metrics 
-    unsorted_read_group_quality_by_cycle_pdf 
-    unsorted_read_group_quality_by_cycle_metrics 
-    unsorted_read_group_quality_distribution_pdf
-    unsorted_read_group_quality_distribution_metrics 
+Read Group PDF and Metrics
+- alignment summary metrics 
+- gc bias detail metrics 
+- gc bias pdf 
+- gc bias summary metrics 
 
-    read_group_alignment_summary_metrics 
-    read_group_gc_bias_detail_metrics 
-    read_group_gc_bias_pdf 
-    read_group_gc_bias_summary_metrics 
+Aggregation PDF and Metrics
+- alignment summary metrics 
+- bait bias detail metrics 
+- bait bias summary metrics 
+- gc bias detail metrics 
+- gc bias pdf 
+- gc bias summary metrics 
+- insert size histogram pdf 
+- insert size metrics 
+- pre adapter detail metrics 
+- pre adapter summary metrics 
+- quality distribution pdf 
+- quality distribution metrics 
 
-    cross_check_fingerprints_metrics 
+Fingerprint Metrics - optional
+- fingerprint summary metrics 
+- fingerprint detail metrics 
 
-    contamination  selfSM 
-    contamination 
+Whole Genome Metrics
+- wgs metrics 
+- raw wgs metrics 
 
-    calculate_read_group_checksum_md5 
+GVCF Metrics
+- gvcf summary metrics
+- gvcf detail metrics 
 
-    Aggregation alignment_summary_metrics 
-    Aggregation bait_bias_detail_metrics 
-    Aggregation bait_bias_summary_metrics 
-    Aggregation gc_bias_detail_metrics 
-    Aggregation gc_bias_pdf 
-    Aggregation gc_bias_summary_metrics 
-    Aggregation insert_size_histogram_pdf 
-    Aggregation insert_size_metrics 
-    Aggregation pre_adapter_detail_metrics 
-    Aggregation pre_adapter_summary_metrics 
-    Aggregation quality_distribution_pdf 
-    Aggregation quality_distribution_metrics 
+Markduplicate Metrics
+- duplicate metrics 
 
-    File? fingerprint_summary_metrics 
-    File? fingerprint_detail_metrics 
+BQSR Report
+- bqsr reports 
 
-    wgs_metrics 
-    raw_wgs_metrics 
+CRAM Output Files
+- output cram 
+- output cram index 
+- output cram md5 
+- validate cram file report 
 
-    gvcf_summary_metrics
-    gvcf_detail_metrics 
+GVCF Output Files
+- output gvcf 
+- output gvcf index 
 
-    duplicate_metrics 
-    output_bqsr_reports 
-
-    output_cram 
-    output_cram_index 
-    output_cram_md5 
-
-    validate_cram_file_report 
-
-    output_vcf 
-    output_vcf_index 
+Other Metrics/Info
+- quality yield metrics
+- cross check fingerprints metrics 
+- contamination  selfSM 
+- contamination 
+- calculate read group checksum md5 
 
 ### Version notes
 
