@@ -6,7 +6,7 @@
   "##_COMMENT2": "INTERVALS", 
   "JointGenotyping.call_interval_list": "gs://broad-references/hg38/v0/wgs_calling_regions.v1.interval_list",
   "JointGenotyping.eval_interval_list": "gs://broad-references/hg38/v0/wgs_evaluation_regions.hg38.interval_list",
-  "JointGenotyping.unpadded_intervals_file": "gs://broad-jg-dev-storage/hg38.even.handcurated.20k.chr20_test.intervals",
+  "JointGenotyping.unpadded_intervals_file": "gs://gatk-test-data/intervals/hg38.even.handcurated.20k.intervals",
 
   "##_COMMENT3": "REFERENCE FILES", 
   "JointGenotyping.ref_fasta": "gs://broad-references/hg38/v0/Homo_sapiens_assembly38.fasta",
