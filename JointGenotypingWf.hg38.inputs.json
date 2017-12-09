@@ -1,13 +1,12 @@
 {
   "##_COMMENT1": "SAMPLE-SPECIFIC - MUST BE ADAPTED TO YOUR DATA !!!",
   "JointGenotyping.callset_name": "hg38_trio",
-  "JointGenotyping.gvcf_list_file" : "",
   "JointGenotyping.sample_name_map" : "",
 
   "##_COMMENT2": "INTERVALS", 
   "JointGenotyping.call_interval_list": "gs://broad-references/hg38/v0/wgs_calling_regions.v1.interval_list",
   "JointGenotyping.eval_interval_list": "gs://broad-references/hg38/v0/wgs_evaluation_regions.hg38.interval_list",
-  "JointGenotyping.unpadded_intervals_file": "",
+  "JointGenotyping.unpadded_intervals_file": "gs://gatk-test-data/intervals/hg38.even.handcurated.20k.intervals",
 
   "##_COMMENT3": "REFERENCE FILES", 
   "JointGenotyping.ref_fasta": "gs://broad-references/hg38/v0/Homo_sapiens_assembly38.fasta",
@@ -40,5 +39,6 @@
   "##_COMMENT7": "RUNTIME PARAMETERS",
   "JointGenotyping.small_disk" : 100,
   "JointGenotyping.medium_disk" : 200,
+  "JointGenotyping.large_disk" : 500,
   "JointGenotyping.huge_disk" : 2000
 }

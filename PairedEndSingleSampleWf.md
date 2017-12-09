@@ -14,6 +14,73 @@ calling (GVCF generation) according to the GATK Best Practices (June 2016) for g
 - GVCF output names must end in ".g.vcf.gz"
 - Reference genome must be provided with an index of ALT contigs
 
+### List of Output files being generated :
+ 
+Unsorted Read Group PDF and Metrics
+ - base distribution by cycle pdf
+ - base distribution by cycle metrics 
+ - insert size histogram pdf 
+ - insert size metrics 
+ - quality by cycle pdf 
+ - quality by cycle metrics 
+ - quality distribution pdf
+ - quality distribution metrics 
+
+Read Group PDF and Metrics
+- alignment summary metrics 
+- gc bias detail metrics 
+- gc bias pdf 
+- gc bias summary metrics 
+
+Aggregation PDF and Metrics
+- alignment summary metrics 
+- bait bias detail metrics 
+- bait bias summary metrics 
+- gc bias detail metrics 
+- gc bias pdf 
+- gc bias summary metrics 
+- insert size histogram pdf 
+- insert size metrics 
+- pre adapter detail metrics 
+- pre adapter summary metrics 
+- quality distribution pdf 
+- quality distribution metrics 
+
+Fingerprint Metrics - optional
+- fingerprint summary metrics 
+- fingerprint detail metrics 
+
+Whole Genome Metrics
+- wgs metrics 
+- raw wgs metrics 
+
+GVCF Metrics
+- gvcf summary metrics
+- gvcf detail metrics 
+
+Markduplicate Metrics
+- duplicate metrics 
+
+BQSR Report
+- bqsr reports 
+
+CRAM Output Files
+- output cram 
+- output cram index 
+- output cram md5 
+- validate cram file report 
+
+GVCF Output Files
+- output gvcf 
+- output gvcf index 
+
+Other Metrics/Info
+- quality yield metrics
+- cross check fingerprints metrics 
+- contamination  selfSM 
+- contamination 
+- calculate read group checksum md5 
+
 ### Version notes
 
 This workflow replaces the `PublicPairedSingleSampleWf_170412.wdl` workflow that was previously deposited in the WDL repository. The processing done on the data is functionally equivalent; the major change in this new version consists in some technical refactoring that delivers significant cost optimizations on the Google Cloud Platform (GCP). This workflow will NOT run on other platforms due to the use of Google NIO; see below for details. 
