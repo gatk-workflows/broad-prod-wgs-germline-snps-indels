@@ -1540,7 +1540,7 @@ task ValidateGVCF {
       -R ${ref_fasta} \
       -L ${wgs_calling_interval_list} \
       -gvcf \
-      --validationTypeToExclude ALLELES \
+      --validation-type-to-exclude ALLELES \
       --dbsnp ${dbSNP_vcf}
   }
   runtime {
