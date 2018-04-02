@@ -36,9 +36,7 @@
   "PairedEndSingleSampleWorkflow.dbSNP_vcf_index": "gs://broad-references/hg38/v0/Homo_sapiens_assembly38.dbsnp138.vcf.idx",
   "PairedEndSingleSampleWorkflow.wgs_coverage_interval_list": "gs://broad-references/hg38/v0/wgs_coverage_regions.hg38.interval_list",
   "PairedEndSingleSampleWorkflow.wgs_evaluation_interval_list": "gs://broad-references/hg38/v0/wgs_evaluation_regions.hg38.interval_list",
-
-  "##_COMMENT4": "PRIVATE REFERENCES",
-  "##PairedEndSingleSampleWorkflow.haplotype_database_file": "gs://gatk-aas-test-data/small/empty.vcf",
+  "##PairedEndSingleSampleWorkflow.haplotype_database_file": "String (optional)",
 
   "##_COMMENT5": "DISK SIZES + MISC",
   "PairedEndSingleSampleWorkflow.flowcell_small_disk": 100,
