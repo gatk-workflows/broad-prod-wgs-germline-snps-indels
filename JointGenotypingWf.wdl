@@ -23,7 +23,7 @@ workflow JointGenotyping {
 
   String callset_name
   File sample_name_map
-  
+
   File ref_fasta
   File ref_fasta_index
   File ref_dict
@@ -121,27 +121,6 @@ workflow JointGenotyping {
       disk_size = medium_disk
   }
 
-  call SNPsVariantRecalibratorCreateModel {
-    input:
-      sites_only_variant_filtered_vcf = SitesOnlyGatherVcf.output_vcf,
-      sites_only_variant_filtered_vcf_index = SitesOnlyGatherVcf.output_vcf_index,
-      recalibration_filename = callset_name + ".snps.recal",
-      tranches_filename = callset_name + ".snps.tranches",
-      recalibration_tranche_values = snp_recalibration_tranche_values,
-      recalibration_annotation_values = snp_recalibration_annotation_values,
-      downsampleFactor = SNP_VQSR_downsampleFactor,
-      model_report_filename = callset_name + ".snps.model.report",
-      hapmap_resource_vcf = hapmap_resource_vcf,
-      hapmap_resource_vcf_index = hapmap_resource_vcf_index,
-      omni_resource_vcf = omni_resource_vcf,
-      omni_resource_vcf_index = omni_resource_vcf_index,
-      one_thousand_genomes_resource_vcf = one_thousand_genomes_resource_vcf,
-      one_thousand_genomes_resource_vcf_index = one_thousand_genomes_resource_vcf_index,
-      dbsnp_resource_vcf = dbsnp_resource_vcf,
-      dbsnp_resource_vcf_index = dbsnp_resource_vcf_index,
-      disk_size = small_disk
-  }
-
   call IndelsVariantRecalibrator {
     input:
       sites_only_variant_filtered_vcf = SitesOnlyGatherVcf.output_vcf,
@@ -159,8 +138,30 @@ workflow JointGenotyping {
       disk_size = small_disk
   }
 
+  if (num_gvcfs > 10000) {
+  call SNPsVariantRecalibratorCreateModel {
+      input:
+        sites_only_variant_filtered_vcf = SitesOnlyGatherVcf.output_vcf,
+        sites_only_variant_filtered_vcf_index = SitesOnlyGatherVcf.output_vcf_index,
+        recalibration_filename = callset_name + ".snps.recal",
+        tranches_filename = callset_name + ".snps.tranches",
+        recalibration_tranche_values = snp_recalibration_tranche_values,
+        recalibration_annotation_values = snp_recalibration_annotation_values,
+        downsampleFactor = SNP_VQSR_downsampleFactor,
+        model_report_filename = callset_name + ".snps.model.report",
+        hapmap_resource_vcf = hapmap_resource_vcf,
+        hapmap_resource_vcf_index = hapmap_resource_vcf_index,
+        omni_resource_vcf = omni_resource_vcf,
+        omni_resource_vcf_index = omni_resource_vcf_index,
+        one_thousand_genomes_resource_vcf = one_thousand_genomes_resource_vcf,
+        one_thousand_genomes_resource_vcf_index = one_thousand_genomes_resource_vcf_index,
+        dbsnp_resource_vcf = dbsnp_resource_vcf,
+        dbsnp_resource_vcf_index = dbsnp_resource_vcf_index,
+        disk_size = small_disk
+    }
+
   scatter (idx in range(length(HardFilterAndMakeSitesOnlyVcf.sites_only_vcf))) {
-    call SNPsVariantRecalibratorScattered {
+    call SNPsVariantRecalibrator as SNPsVariantRecalibratorScattered {
       input:
         sites_only_variant_filtered_vcf = HardFilterAndMakeSitesOnlyVcf.sites_only_vcf[idx],
         sites_only_variant_filtered_vcf_index = HardFilterAndMakeSitesOnlyVcf.sites_only_vcf_index[idx],
@@ -179,13 +180,35 @@ workflow JointGenotyping {
         dbsnp_resource_vcf_index = dbsnp_resource_vcf_index,
         disk_size = small_disk
       }
+    }
+    call GatherTranches as SNPGatherTranches {
+        input:
+          input_fofn = write_lines(SNPsVariantRecalibratorScattered.tranches),
+          output_filename = callset_name + ".snps.gathered.tranches",
+          disk_size = small_disk
+      }
   }
 
-  call GatherTranches as SNPGatherTranches {
-    input:
-      input_fofn = write_lines(SNPsVariantRecalibratorScattered.tranches),
-      output_filename = callset_name + ".snps.gathered.tranches",
-      disk_size = small_disk
+
+  if (num_gvcfs <= 10000){
+    call SNPsVariantRecalibrator as SNPsVariantRecalibratorClassic {
+      input:
+          sites_only_variant_filtered_vcf = SitesOnlyGatherVcf.output_vcf,
+          sites_only_variant_filtered_vcf_index = SitesOnlyGatherVcf.output_vcf_index,
+          recalibration_filename = callset_name + ".snps.recal",
+          tranches_filename = callset_name + ".snps.tranches",
+          recalibration_tranche_values = snp_recalibration_tranche_values,
+          recalibration_annotation_values = snp_recalibration_annotation_values,
+          hapmap_resource_vcf = hapmap_resource_vcf,
+          hapmap_resource_vcf_index = hapmap_resource_vcf_index,
+          omni_resource_vcf = omni_resource_vcf,
+          omni_resource_vcf_index = omni_resource_vcf_index,
+          one_thousand_genomes_resource_vcf = one_thousand_genomes_resource_vcf,
+          one_thousand_genomes_resource_vcf_index = one_thousand_genomes_resource_vcf_index,
+          dbsnp_resource_vcf = dbsnp_resource_vcf,
+          dbsnp_resource_vcf_index = dbsnp_resource_vcf_index,
+          disk_size = small_disk
+    }
   }
 
   # For small callsets (fewer than 1000 samples) we can gather the VCF shards and collect metrics directly.
@@ -201,9 +224,9 @@ workflow JointGenotyping {
         indels_recalibration = IndelsVariantRecalibrator.recalibration,
         indels_recalibration_index = IndelsVariantRecalibrator.recalibration_index,
         indels_tranches = IndelsVariantRecalibrator.tranches,
-        snps_recalibration = SNPsVariantRecalibratorScattered.recalibration[idx],
-        snps_recalibration_index = SNPsVariantRecalibratorScattered.recalibration_index[idx],
-        snps_tranches = SNPGatherTranches.tranches,
+        snps_recalibration = if defined(SNPsVariantRecalibratorScattered.recalibration) then select_first([SNPsVariantRecalibratorScattered.recalibration])[idx] else select_first([SNPsVariantRecalibratorClassic.recalibration]),
+        snps_recalibration_index = if defined(SNPsVariantRecalibratorScattered.recalibration_index) then select_first([SNPsVariantRecalibratorScattered.recalibration_index])[idx] else select_first([SNPsVariantRecalibratorClassic.recalibration_index]),
+        snps_tranches = select_first([SNPGatherTranches.tranches, SNPsVariantRecalibratorClassic.tranches]),
         indel_filter_level = indel_filter_level,
         snp_filter_level = snp_filter_level,
         disk_size = medium_disk
@@ -309,13 +332,13 @@ task ImportGVCFs {
     # a significant amount of non-heap memory for native libraries.
     # Also, testing has shown that the multithreaded reader initialization
     # does not scale well beyond 5 threads, so don't increase beyond that.
-    /usr/gitc/gatk-launch --javaOptions "-Xmx4g -Xms4g" \
+    /gatk/gatk --java-options "-Xmx4g -Xms4g" \
     GenomicsDBImport \
-    --genomicsDBWorkspace ${workspace_dir_name} \
-    --batchSize ${batch_size} \
+    --genomicsdb-workspace-path ${workspace_dir_name} \
+    --batch-size ${batch_size} \
     -L ${interval} \
-    --sampleNameMap ${sample_name_map} \
-    --readerThreads 5 \
+    --sample-name-map ${sample_name_map} \
+    --reader-threads 5 \
     -ip 500
 
     tar -cf ${workspace_dir_name}.tar ${workspace_dir_name}
@@ -326,6 +349,7 @@ task ImportGVCFs {
     cpu: "2"
     disks: "local-disk " + disk_size + " HDD"
     preemptible: 5
+    docker: "broadinstitute/gatk:4.0.1.1"
   }
   output {
     File output_genomicsdb = "${workspace_dir_name}.tar"
@@ -352,14 +376,14 @@ task GenotypeGVCFs {
     tar -xf ${workspace_tar}
     WORKSPACE=$( basename ${workspace_tar} .tar)
 
-    /usr/gitc/gatk-launch --javaOptions "-Xmx5g -Xms5g" \
+    /usr/gitc/gatk --java-options "-Xmx5g -Xms5g" \
      GenotypeGVCFs \
      -R ${ref_fasta} \
      -O ${output_vcf_filename} \
      -D ${dbsnp_vcf} \
      -G StandardAnnotation \
-     --onlyOutputCallsStartingInIntervals \
-     -newQual \
+     --only-output-calls-starting-in-intervals \
+     --use-new-qual-calculator \
      -V gendb://$WORKSPACE \
      -L ${interval}
   >>>
@@ -388,10 +412,10 @@ task HardFilterAndMakeSitesOnlyVcf {
   command {
     set -e
 
-    /usr/gitc/gatk-launch --javaOptions "-Xmx3g -Xms3g" \
+    /usr/gitc/gatk --java-options "-Xmx3g -Xms3g" \
       VariantFiltration \
-      --filterExpression "ExcessHet > ${excess_het_threshold}" \
-      --filterName ExcessHet \
+      --filter-expression "ExcessHet > ${excess_het_threshold}" \
+      --filter-name ExcessHet \
       -O ${variant_filtered_vcf_filename} \
       -V ${vcf}
 
@@ -435,16 +459,16 @@ task IndelsVariantRecalibrator {
   Int disk_size
 
   command {
-    /usr/gitc/gatk-launch --javaOptions "-Xmx24g -Xms24g" \
+    /usr/gitc/gatk --java-options "-Xmx24g -Xms24g" \
       VariantRecalibrator \
       -V ${sites_only_variant_filtered_vcf} \
       -O ${recalibration_filename} \
-      --tranchesFile ${tranches_filename} \
-      -allPoly \
+      --tranches-file ${tranches_filename} \
+      --trust-all-polymorphic \
       -tranche ${sep=' -tranche ' recalibration_tranche_values} \
       -an ${sep=' -an ' recalibration_annotation_values} \
       -mode INDEL \
-      --maxGaussians 4 \
+      --max-gaussians 4 \
       -resource mills,known=false,training=true,truth=true,prior=12:${mills_resource_vcf} \
       -resource axiomPoly,known=false,training=true,truth=false,prior=10:${axiomPoly_resource_vcf} \
       -resource dbsnp,known=true,training=false,truth=false,prior=2:${dbsnp_resource_vcf}
@@ -486,18 +510,18 @@ task SNPsVariantRecalibratorCreateModel {
   Int disk_size
 
   command {
-    /usr/gitc/gatk-launch --javaOptions "-Xmx100g -Xms100g" \
+    /usr/gitc/gatk --java-options "-Xmx100g -Xms100g" \
       VariantRecalibrator \
       -V ${sites_only_variant_filtered_vcf} \
       -O ${recalibration_filename} \
-      --tranchesFile ${tranches_filename} \
-      -allPoly \
+      --tranches-file ${tranches_filename} \
+      --trust-all-polymorphic \
       -tranche ${sep=' -tranche ' recalibration_tranche_values} \
       -an ${sep=' -an ' recalibration_annotation_values} \
       -mode SNP \
-      -sampleEvery ${downsampleFactor} \
-      --output_model ${model_report_filename} \
-      --maxGaussians 6 \
+      --sample-every-Nth-variant ${downsampleFactor} \
+      --output-model ${model_report_filename} \
+      --max-gaussians 6 \
       -resource hapmap,known=false,training=true,truth=true,prior=15:${hapmap_resource_vcf} \
       -resource omni,known=false,training=true,truth=true,prior=12:${omni_resource_vcf} \
       -resource 1000G,known=false,training=true,truth=false,prior=10:${one_thousand_genomes_resource_vcf} \
@@ -514,10 +538,10 @@ task SNPsVariantRecalibratorCreateModel {
   }
 }
 
-task SNPsVariantRecalibratorScattered {
+task SNPsVariantRecalibrator {
   String recalibration_filename
   String tranches_filename
-  File model_report
+  File? model_report
 
   Array[String] recalibration_tranche_values
   Array[String] recalibration_annotation_values
@@ -537,18 +561,17 @@ task SNPsVariantRecalibratorScattered {
   Int disk_size
 
   command {
-    /usr/gitc/gatk-launch --javaOptions "-Xmx3g -Xms3g" \
+    /usr/gitc/gatk --java-options "-Xmx3g -Xms3g" \
       VariantRecalibrator \
       -V ${sites_only_variant_filtered_vcf} \
       -O ${recalibration_filename} \
-      --tranchesFile ${tranches_filename} \
-      -allPoly \
+      --tranches-file ${tranches_filename} \
+      --trust-all-polymorphic \
       -tranche ${sep=' -tranche ' recalibration_tranche_values} \
       -an ${sep=' -an ' recalibration_annotation_values} \
       -mode SNP \
-      --input_model ${model_report} \
-      -scatterTranches \
-      --maxGaussians 6 \
+      ${"--input-model " + model_report + " --output-tranches-for-scatter "} \
+      --max-gaussians 6 \
       -resource hapmap,known=false,training=true,truth=true,prior=15:${hapmap_resource_vcf} \
       -resource omni,known=false,training=true,truth=true,prior=12:${omni_resource_vcf} \
       -resource 1000G,known=false,training=true,truth=false,prior=10:${one_thousand_genomes_resource_vcf} \
@@ -594,7 +617,7 @@ task GatherTranches {
 
     cat ${input_fofn} | rev | cut -d '/' -f 1 | rev | awk '{print "tranches/" $1}' > inputs.list
 
-      /usr/gitc/gatk-launch --javaOptions "-Xmx6g -Xms6g" \
+      /gatk/gatk --java-options "-Xmx6g -Xms6g" \
       GatherTranches \
       --input inputs.list \
       --output ${output_filename}
@@ -604,6 +627,7 @@ task GatherTranches {
     cpu: "2"
     disks: "local-disk " + disk_size + " HDD"
     preemptible: 5
+    docker: "broadinstitute/gatk:4.0.1.1"
   }
   output {
     File tranches = "${output_filename}"
@@ -629,24 +653,24 @@ task ApplyRecalibration {
   command {
     set -e
 
-    /usr/gitc/gatk-launch --javaOptions "-Xmx5g -Xms5g" \
+    /usr/gitc/gatk --java-options "-Xmx5g -Xms5g" \
       ApplyVQSR \
       -O tmp.indel.recalibrated.vcf \
       -V ${input_vcf} \
-      --recalFile ${indels_recalibration} \
-      -tranchesFile ${indels_tranches} \
-      -ts_filter_level ${indel_filter_level} \
-      --createOutputVariantIndex true \
+      --recal-file ${indels_recalibration} \
+      --tranches-file ${indels_tranches} \
+      --truth-sensitivity-filter-level ${indel_filter_level} \
+      --create-output-variant-index true \
       -mode INDEL
-      
-    /usr/gitc/gatk-launch --javaOptions "-Xmx5g -Xms5g" \
+
+    /usr/gitc/gatk --java-options "-Xmx5g -Xms5g" \
       ApplyVQSR \
       -O ${recalibrated_vcf_filename} \
       -V tmp.indel.recalibrated.vcf \
-      --recalFile ${snps_recalibration} \
-      -tranchesFile ${snps_tranches} \
-      -ts_filter_level ${snp_filter_level} \
-      --createOutputVariantIndex true \
+      --recal-file ${snps_recalibration} \
+      --tranches-file ${snps_tranches} \
+      --truth-sensitivity-filter-level ${snp_filter_level} \
+      --create-output-variant-index true \
       -mode SNP
   }
   runtime {
@@ -673,11 +697,13 @@ task GatherVcfs {
     # Now using NIO to localize the vcfs but the input file must have a ".list" extension
     mv ${input_vcfs_fofn} inputs.list
 
-    # ignoreSafetyChecks make a big performance difference so we include it in our invocation
-    /usr/gitc/gatk-launch --javaOptions "-Xmx6g -Xms6g" \
+    # --ignore-safety-checks makes a big performance difference so we include it in our invocation.
+    # This argument disables expensive checks that the file headers contain the same set of
+    # genotyped samples and that files are in order by position of first record.
+    /usr/gitc/gatk --java-options "-Xmx6g -Xms6g" \
     GatherVcfsCloud \
-    --ignoreSafetyChecks \
-    --gatherType BLOCK \
+    --ignore-safety-checks \
+    --gather-type BLOCK \
     --input inputs.list \
     --output ${output_vcf_name}
 
@@ -698,7 +724,7 @@ task GatherVcfs {
 task CollectVariantCallingMetrics {
   File input_vcf
   File input_vcf_index
-  
+
   String metrics_filename_prefix
   File dbsnp_vcf
   File dbsnp_vcf_index
@@ -848,3 +874,4 @@ task DynamicallyCombineIntervals {
     File output_intervals = "out.intervals"
   }
 }
+
