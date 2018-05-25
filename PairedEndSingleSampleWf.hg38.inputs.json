@@ -2,10 +2,10 @@
   "##_COMMENT1": "Take note of the .64 extensions on the reference files, issues between 32 and 64 bit OS",
 
   "##_COMMENT2": "SAMPLE NAME AND UNMAPPED BAMS - read the README to find other examples.",
-  "PairedEndSingleSampleWorkflow.sample_name": "String",
-  "PairedEndSingleSampleWorkflow.base_file_name": "String",
-  "PairedEndSingleSampleWorkflow.flowcell_unmapped_bams": ["File"],
-  "PairedEndSingleSampleWorkflow.final_gvcf_base_name": "",
+  "PairedEndSingleSampleWorkflow.sample_name": "NA12878",
+  "PairedEndSingleSampleWorkflow.base_file_name": "NA12878",
+  "PairedEndSingleSampleWorkflow.flowcell_unmapped_bams": ["gs://broad-public-datasets/NA12878_downsampled_for_testing/unmapped/H06HDADXX130110.1.ATCACGAT.20k_reads.bam"],
+  "PairedEndSingleSampleWorkflow.final_gvcf_base_name": "NA12878",
   "PairedEndSingleSampleWorkflow.unmapped_bam_suffix": ".bam",
 
   "##_COMMENT3": "REFERENCES",

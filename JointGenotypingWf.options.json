@@ -2,6 +2,7 @@
   "read_from_cache":true,
   "write_to_cache":true,
   "workflow_failure_mode" : "ContinueWhilePossible",
+  "##Comment":"Users may use the following docker image temporarily until broadinstitute/genomes-in-the-cloud is updated ",
   "default_runtime_attributes": {
     "zones": "us-central1-a us-central1-b us-central1-c us-central1-f",
     "docker": "bshifaw/gatk4.0.1.0-joint-genotyping:1.0.0.0"
