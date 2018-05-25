@@ -33,7 +33,6 @@ workflow PairedEndSingleSampleWorkflow {
   File contamination_sites_bed
   File contamination_sites_mu
   File? fingerprint_genotypes_file
-  File? fingerprint_genotypes_index
   File? haplotype_database_file
   File wgs_evaluation_interval_list
   File wgs_coverage_interval_list
@@ -47,7 +46,7 @@ workflow PairedEndSingleSampleWorkflow {
   File wgs_calling_interval_list
   Int haplotype_scatter_count
   Int break_bands_at_multiples_of
-  Int read_length = 250
+  Int? read_length
 
   File ref_fasta
   File ref_fasta_index
@@ -167,10 +166,6 @@ workflow PairedEndSingleSampleWorkflow {
       preemptible_tries = preemptible_tries
   }
 
-  # MarkDuplicates and SortSam currently take too long for preemptibles if the input data is too large
-  Float gb_size_cutoff_for_preemptibles = 110.0
-  Boolean data_too_large_for_preemptibles = SumFloats.total_size > gb_size_cutoff_for_preemptibles
-
   # Aggregate aligned+merged flowcell BAM files and mark duplicates
   # We take advantage of the tool's ability to take multiple BAM inputs and write out a single output
   # to avoid having to spend time just merging BAM files.
@@ -183,7 +178,7 @@ workflow PairedEndSingleSampleWorkflow {
       # and the merged output.
       disk_size = (md_disk_multiplier * SumFloats.total_size) + additional_disk,
       compression_level = compression_level,
-      preemptible_tries = if data_too_large_for_preemptibles then 0 else agg_preemptible_tries
+      preemptible_tries = agg_preemptible_tries
   }
 
   Float agg_bam_size = size(MarkDuplicates.output_bam, "GB")
@@ -196,7 +191,7 @@ workflow PairedEndSingleSampleWorkflow {
       # This task spills to disk so we need space for the input bam, the output bam, and any spillage.
       disk_size = (sort_sam_disk_multiplier * agg_bam_size) + additional_disk,
       compression_level = compression_level,
-      preemptible_tries = if data_too_large_for_preemptibles then 0 else agg_preemptible_tries
+      preemptible_tries = agg_preemptible_tries
   }
 
   if (defined(haplotype_database_file)) {
@@ -339,7 +334,6 @@ workflow PairedEndSingleSampleWorkflow {
         input_bam_index = GatherBamFiles.output_bam_index,
         haplotype_database_file = haplotype_database_file,
         genotypes = fingerprint_genotypes_file,
-        genotypes_index = fingerprint_genotypes_index,
         output_basename = base_file_name,
         sample = sample_name,
         disk_size = binned_qual_bam_size + additional_disk,
@@ -579,6 +573,7 @@ task CollectQualityYieldMetrics {
     disks: "local-disk " + sub(disk_size, "\\..*", "") + " HDD"
     memory: "3 GB"
     preemptible: preemptible_tries
+    docker: "broadinstitute/genomes-in-the-cloud:2.3.1-1512499786"
   }
   output {
     File metrics = "${metrics_filename}"
@@ -596,6 +591,7 @@ task GetBwaVersion {
   }
   runtime {
     memory: "1 GB"
+    docker: "broadinstitute/genomes-in-the-cloud:2.3.1-1512499786"
   }
   output {
     String version = read_string(stdout())
@@ -682,6 +678,7 @@ task SamToFastqAndBwaMemAndMba {
     memory: "14 GB"
     cpu: "16"
     disks: "local-disk " + sub(disk_size, "\\..*", "") + " HDD"
+    docker: "broadinstitute/genomes-in-the-cloud:2.3.1-1512499786"
   }
   output {
     File output_bam = "${output_bam_basename}.bam"
@@ -706,13 +703,13 @@ task SortSam {
       CREATE_INDEX=true \
       CREATE_MD5_FILE=true \
       MAX_RECORDS_IN_RAM=300000
-
   }
   runtime {
     disks: "local-disk " + sub(disk_size, "\\..*", "") + " HDD"
     cpu: "1"
     memory: "5000 MB"
     preemptible: preemptible_tries
+    docker: "broadinstitute/genomes-in-the-cloud:2.3.1-1512499786"
   }
   output {
     File output_bam = "${output_bam_basename}.bam"
@@ -749,6 +746,7 @@ task CollectUnsortedReadgroupBamQualityMetrics {
     memory: "7 GB"
     disks: "local-disk " + sub(disk_size, "\\..*", "") + " HDD"
     preemptible: preemptible_tries
+    docker: "broadinstitute/genomes-in-the-cloud:2.3.1-1512499786"
   }
   output {
     File base_distribution_by_cycle_pdf = "${output_bam_prefix}.base_distribution_by_cycle.pdf"
@@ -790,6 +788,7 @@ task CollectReadgroupBamQualityMetrics {
     memory: "7 GB"
     disks: "local-disk " + sub(disk_size, "\\..*", "") + " HDD"
     preemptible: preemptible_tries
+    docker: "broadinstitute/genomes-in-the-cloud:2.3.1-1512499786"
   }
   output {
     File alignment_summary_metrics = "${output_bam_prefix}.alignment_summary_metrics"
@@ -834,6 +833,7 @@ task CollectAggregationMetrics {
     memory: "7 GB"
     disks: "local-disk " + sub(disk_size, "\\..*", "") + " HDD"
     preemptible: preemptible_tries
+    docker: "broadinstitute/genomes-in-the-cloud:2.3.1-1512499786"
   }
   output {
     File alignment_summary_metrics = "${output_bam_prefix}.alignment_summary_metrics"
@@ -875,6 +875,7 @@ task CrossCheckFingerprints {
     preemptible: preemptible_tries
     memory: "2 GB"
     disks: "local-disk " + sub(disk_size, "\\..*", "") + " HDD"
+    docker: "broadinstitute/genomes-in-the-cloud:2.3.1-1512499786"
   }
   output {
     File metrics = "${metrics_filename}"
@@ -888,7 +889,6 @@ task CheckFingerprint {
   String output_basename
   File? haplotype_database_file
   File? genotypes
-  File? genotypes_index
   String sample
   Float disk_size
   Int preemptible_tries
@@ -910,6 +910,7 @@ task CheckFingerprint {
     preemptible: preemptible_tries
     memory: "1 GB"
     disks: "local-disk " + sub(disk_size, "\\..*", "") + " HDD"
+    docker: "broadinstitute/genomes-in-the-cloud:2.3.1-1512499786"
   }
   output {
     File summary_metrics = "${output_basename}.fingerprinting_summary_metrics"
@@ -951,6 +952,7 @@ task MarkDuplicates {
     preemptible: preemptible_tries
     memory: "7 GB"
     disks: "local-disk " + sub(disk_size, "\\..*", "") + " HDD"
+    docker: "broadinstitute/genomes-in-the-cloud:2.3.1-1512499786"
   }
   output {
     File output_bam = "${output_bam_basename}.bam"
@@ -1029,16 +1031,16 @@ task BaseRecalibrator {
   Int preemptible_tries
 
   command {
-    /usr/gitc/gatk4/gatk-launch --javaOptions "-XX:GCTimeLimit=50 -XX:GCHeapFreeLimit=10 -XX:+PrintFlagsFinal \
+    /gatk/gatk --java-options "-XX:GCTimeLimit=50 -XX:GCHeapFreeLimit=10 -XX:+PrintFlagsFinal \
       -XX:+PrintGCTimeStamps -XX:+PrintGCDateStamps -XX:+PrintGCDetails \
       -Xloggc:gc_log.log -Xms4000m" \
       BaseRecalibrator \
       -R ${ref_fasta} \
       -I ${input_bam} \
-      --useOriginalQualities \
+      --use-original-qualities \
       -O ${recalibration_report_filename} \
-      -knownSites ${dbSNP_vcf} \
-      -knownSites ${sep=" -knownSites " known_indels_sites_VCFs} \
+      --known-sites ${dbSNP_vcf} \
+      --known-sites ${sep=" --known-sites " known_indels_sites_VCFs} \
       -L ${sep=" -L " sequence_group_interval}
   }
   runtime {
@@ -1065,18 +1067,18 @@ task ApplyBQSR {
   Int preemptible_tries
 
   command {
-    /usr/gitc/gatk4/gatk-launch --javaOptions "-XX:+PrintFlagsFinal -XX:+PrintGCTimeStamps -XX:+PrintGCDateStamps \
+    /gatk/gatk --java-options "-XX:+PrintFlagsFinal -XX:+PrintGCTimeStamps -XX:+PrintGCDateStamps \
       -XX:+PrintGCDetails -Xloggc:gc_log.log \
       -XX:GCTimeLimit=50 -XX:GCHeapFreeLimit=10 -Dsamjdk.compression_level=${compression_level} -Xms3000m" \
       ApplyBQSR \
-      --createOutputBamMD5 \
-      --addOutputSAMProgramRecord \
+      --create-output-bam-md5 \
+      --add-output-sam-program-record \
       -R ${ref_fasta} \
       -I ${input_bam} \
-      --useOriginalQualities \
+      --use-original-qualities \
       -O ${output_bam_basename}.bam \
       -bqsr ${recalibration_report} \
-      -SQQ 10 -SQQ 20 -SQQ 30 \
+      --static-quantized-quals 10 --static-quantized-quals 20 --static-quantized-quals 30 \
       -L ${sep=" -L " sequence_group_interval}
   }
   runtime {
@@ -1098,7 +1100,7 @@ task GatherBqsrReports {
   Int preemptible_tries
 
   command {
-    /usr/gitc/gatk4/gatk-launch --javaOptions "-Xms3000m" \
+    /gatk/gatk --java-options "-Xms3000m" \
       GatherBQSRReports \
       -I ${sep=' -I ' input_bqsr_reports} \
       -O ${output_report_filename}
@@ -1133,6 +1135,7 @@ task GatherBamFiles {
     preemptible: preemptible_tries
     memory: "3 GB"
     disks: "local-disk " + sub(disk_size, "\\..*", "") + " HDD"
+    docker: "broadinstitute/genomes-in-the-cloud:2.3.1-1512499786"
   }
   output {
     File output_bam = "${output_bam_basename}.bam"
@@ -1216,6 +1219,7 @@ task ValidateSamFile {
     preemptible: preemptible_tries
     memory: "7 GB"
     disks: "local-disk " + sub(disk_size, "\\..*", "") + " HDD"
+    docker: "broadinstitute/genomes-in-the-cloud:2.3.1-1512499786"
   }
   output {
     File report = "${report_filename}"
@@ -1230,7 +1234,7 @@ task CollectWgsMetrics {
   File wgs_coverage_interval_list
   File ref_fasta
   File ref_fasta_index
-  Int read_length
+  Int? read_length
   Float disk_size
   Int preemptible_tries
 
@@ -1250,6 +1254,7 @@ task CollectWgsMetrics {
     preemptible: preemptible_tries
     memory: "3 GB"
     disks: "local-disk " + sub(disk_size, "\\..*", "") + " HDD"
+    docker: "broadinstitute/genomes-in-the-cloud:2.3.1-1512499786"
   }
   output {
     File metrics = "${metrics_filename}"
@@ -1264,7 +1269,7 @@ task CollectRawWgsMetrics {
   File wgs_coverage_interval_list
   File ref_fasta
   File ref_fasta_index
-  Int read_length
+  Int? read_length
   Float disk_size
   Int preemptible_tries
 
@@ -1284,6 +1289,7 @@ task CollectRawWgsMetrics {
     preemptible: preemptible_tries
     memory: "3 GB"
     disks: "local-disk " + sub(disk_size, "\\..*", "") + " HDD"
+    docker: "broadinstitute/genomes-in-the-cloud:2.3.1-1512499786"
   }
   output {
     File metrics = "${metrics_filename}"
@@ -1308,6 +1314,7 @@ task CalculateReadGroupChecksum {
     preemptible: preemptible_tries
     memory: "2 GB"
     disks: "local-disk " + sub(disk_size, "\\..*", "") + " HDD"
+    docker: "broadinstitute/genomes-in-the-cloud:2.3.1-1512499786"
   }
   output {
     File md5_file = "${read_group_md5_filename}"
@@ -1429,6 +1436,7 @@ task ScatterIntervalList {
   }
   runtime {
     memory: "2 GB"
+    docker: "broadinstitute/genomes-in-the-cloud:2.3.1-1512499786"
   }
 }
 
@@ -1476,6 +1484,7 @@ task HaplotypeCaller {
     memory: "10 GB"
     cpu: "1"
     disks: "local-disk " + sub(disk_size, "\\..*", "") + " HDD"
+    docker: "broadinstitute/genomes-in-the-cloud:2.3.1-1512499786"
   }
   output {
     File output_gvcf = "${gvcf_basename}.vcf.gz"
@@ -1503,6 +1512,7 @@ task MergeVCFs {
     preemptible: preemptible_tries
     memory: "3 GB"
     disks: "local-disk " + disk_size + " HDD"
+    docker: "broadinstitute/genomes-in-the-cloud:2.3.1-1512499786"
   }
   output {
     File output_vcf = "${output_vcf_name}"
@@ -1524,13 +1534,13 @@ task ValidateGVCF {
   Int preemptible_tries
 
   command {
-    /usr/gitc/gatk4/gatk-launch --javaOptions "-Xms3000m" \
+    /gatk/gatk --java-options "-Xms3000m" \
       ValidateVariants \
       -V ${input_vcf} \
       -R ${ref_fasta} \
       -L ${wgs_calling_interval_list} \
       -gvcf \
-      --validationTypeToExclude ALLELES \
+      --validation-type-to-exclude ALLELES \
       --dbsnp ${dbSNP_vcf}
   }
   runtime {
@@ -1566,6 +1576,7 @@ task CollectGvcfCallingMetrics {
     preemptible: preemptible_tries
     memory: "3 GB"
     disks: "local-disk " + sub(disk_size, "\\..*", "") + " HDD"
+    docker: "broadinstitute/genomes-in-the-cloud:2.3.1-1512499786"
   }
   output {
     File summary_metrics = "${metrics_basename}.variant_calling_summary_metrics"
@@ -1603,6 +1614,7 @@ task ConvertToCram {
     memory: "3 GB"
     cpu: "1"
     disks: "local-disk " + sub(disk_size, "\\..*", "") + " HDD"
+    docker: "broadinstitute/genomes-in-the-cloud:2.3.1-1512499786"
   }
   output {
     File output_cram = "${output_basename}.cram"
@@ -1627,4 +1639,3 @@ task SumFloats {
     preemptible: preemptible_tries
   }
 }
-
