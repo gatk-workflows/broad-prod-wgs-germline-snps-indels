@@ -39,7 +39,7 @@ discovery in human whole-genome sequencing (WGS) and exome sequencing data.
 - Summary Metrics
 
 ### Software version requirements :
-- GATK 4.0.1.0 or later 
+- GATK 4.beta.5 or later for PairedSingleSampleWF. GATK4.0.1.0 or later for JointGenotypingWf.
 - Picard 2.x
 - Samtools (see gotc docker)
 - Python 2.7
