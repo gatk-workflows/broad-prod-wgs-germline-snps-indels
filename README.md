@@ -22,7 +22,7 @@ Indel discovery in human whole-genome sequencing (WGS) data.
 - BQSR Report
 - Several Summary Metrics 
 
-### joint-discovery-gatk :
+### JointGenotypingWf :
 The second WDL implements the joint discovery and VQSR 
 filtering portion of the GATK Best Practices (June 2016) for germline SNP and Indel 
 discovery in human whole-genome sequencing (WGS) and exome sequencing data.
@@ -39,11 +39,11 @@ discovery in human whole-genome sequencing (WGS) and exome sequencing data.
 - Summary Metrics
 
 ### Software version requirements :
-- GATK 4.beta.3 or later 
+- GATK 4.beta.5 or later for PairedSingleSampleWF. GATK4.0.1.0 or later for JointGenotypingWf.
 - Picard 2.x
 - Samtools (see gotc docker)
 - Python 2.7
 
 Cromwell version support 
-- Successfully tested on v29
+- Successfully tested on v31
 - Does not work on versions < v23 due to output syntax

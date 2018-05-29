@@ -1,7 +1,7 @@
 {
   "##_COMMENT1": "SAMPLE-SPECIFIC - MUST BE ADAPTED TO YOUR DATA !!!",
   "JointGenotyping.callset_name": "hg38_trio",
-  "JointGenotyping.sample_name_map" : "",
+  "JointGenotyping.sample_name_map" : "gs://gatk-test-data/joint_discovery/NA12878.sample_map",
 
   "##_COMMENT2": "INTERVALS", 
   "JointGenotyping.call_interval_list": "gs://broad-references/hg38/v0/wgs_calling_regions.v1.interval_list",
