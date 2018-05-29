@@ -1,6 +1,6 @@
 # prod-wgs-germline-snps-indels
 ### Purpose : 
-Workflows used in production at Broad for germline short variant discovery in WGS data 
+Workflows used in production at Broad for germline short variant discovery in WGS data. 
 
 ### PairedSingleSampleWF :
 This WDL pipeline implements data pre-processing and initial variant calling (GVCF
