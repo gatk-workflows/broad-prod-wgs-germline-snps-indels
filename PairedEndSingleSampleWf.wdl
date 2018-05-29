@@ -33,7 +33,6 @@ workflow PairedEndSingleSampleWorkflow {
   File contamination_sites_bed
   File contamination_sites_mu
   File? fingerprint_genotypes_file
-  File? fingerprint_genotypes_index
   File? haplotype_database_file
   File wgs_evaluation_interval_list
   File wgs_coverage_interval_list
@@ -47,7 +46,7 @@ workflow PairedEndSingleSampleWorkflow {
   File wgs_calling_interval_list
   Int haplotype_scatter_count
   Int break_bands_at_multiples_of
-  Int read_length = 250
+  Int? read_length
 
   File ref_fasta
   File ref_fasta_index
@@ -167,10 +166,6 @@ workflow PairedEndSingleSampleWorkflow {
       preemptible_tries = preemptible_tries
   }
 
-  # MarkDuplicates and SortSam currently take too long for preemptibles if the input data is too large
-  Float gb_size_cutoff_for_preemptibles = 110.0
-  Boolean data_too_large_for_preemptibles = SumFloats.total_size > gb_size_cutoff_for_preemptibles
-
   # Aggregate aligned+merged flowcell BAM files and mark duplicates
   # We take advantage of the tool's ability to take multiple BAM inputs and write out a single output
   # to avoid having to spend time just merging BAM files.
@@ -183,7 +178,7 @@ workflow PairedEndSingleSampleWorkflow {
       # and the merged output.
       disk_size = (md_disk_multiplier * SumFloats.total_size) + additional_disk,
       compression_level = compression_level,
-      preemptible_tries = if data_too_large_for_preemptibles then 0 else agg_preemptible_tries
+      preemptible_tries = agg_preemptible_tries
   }
 
   Float agg_bam_size = size(MarkDuplicates.output_bam, "GB")
@@ -196,7 +191,7 @@ workflow PairedEndSingleSampleWorkflow {
       # This task spills to disk so we need space for the input bam, the output bam, and any spillage.
       disk_size = (sort_sam_disk_multiplier * agg_bam_size) + additional_disk,
       compression_level = compression_level,
-      preemptible_tries = if data_too_large_for_preemptibles then 0 else agg_preemptible_tries
+      preemptible_tries = agg_preemptible_tries
   }
 
   if (defined(haplotype_database_file)) {
@@ -339,7 +334,6 @@ workflow PairedEndSingleSampleWorkflow {
         input_bam_index = GatherBamFiles.output_bam_index,
         haplotype_database_file = haplotype_database_file,
         genotypes = fingerprint_genotypes_file,
-        genotypes_index = fingerprint_genotypes_index,
         output_basename = base_file_name,
         sample = sample_name,
         disk_size = binned_qual_bam_size + additional_disk,
@@ -888,7 +882,6 @@ task CheckFingerprint {
   String output_basename
   File? haplotype_database_file
   File? genotypes
-  File? genotypes_index
   String sample
   Float disk_size
   Int preemptible_tries
@@ -1230,7 +1223,7 @@ task CollectWgsMetrics {
   File wgs_coverage_interval_list
   File ref_fasta
   File ref_fasta_index
-  Int read_length
+  Int? read_length
   Float disk_size
   Int preemptible_tries
 
@@ -1244,7 +1237,7 @@ task CollectWgsMetrics {
       INTERVALS=${wgs_coverage_interval_list} \
       OUTPUT=${metrics_filename} \
       USE_FAST_ALGORITHM=true \
-      READ_LENGTH=${read_length}
+      READ_LENGTH=${default=250 read_length}
   }
   runtime {
     preemptible: preemptible_tries
@@ -1264,7 +1257,7 @@ task CollectRawWgsMetrics {
   File wgs_coverage_interval_list
   File ref_fasta
   File ref_fasta_index
-  Int read_length
+  Int? read_length
   Float disk_size
   Int preemptible_tries
 
@@ -1278,7 +1271,7 @@ task CollectRawWgsMetrics {
       INTERVALS=${wgs_coverage_interval_list} \
       OUTPUT=${metrics_filename} \
       USE_FAST_ALGORITHM=true \
-      READ_LENGTH=${read_length}
+      READ_LENGTH=${default=250 read_length}
   }
   runtime {
     preemptible: preemptible_tries
@@ -1627,4 +1620,3 @@ task SumFloats {
     preemptible: preemptible_tries
   }
 }
-
