@@ -33,6 +33,7 @@ workflow PairedEndSingleSampleWorkflow {
   File contamination_sites_bed
   File contamination_sites_mu
   File? fingerprint_genotypes_file
+  File? fingerprint_genotypes_index
   File? haplotype_database_file
   File wgs_evaluation_interval_list
   File wgs_coverage_interval_list
@@ -176,6 +177,10 @@ workflow PairedEndSingleSampleWorkflow {
       preemptible_tries = preemptible_tries
   }
 
+  # MarkDuplicates and SortSam currently take too long for preemptibles if the input data is too large
+  Float gb_size_cutoff_for_preemptibles = 110.0
+  Boolean data_too_large_for_preemptibles = SumFloats.total_size > gb_size_cutoff_for_preemptibles
+
   # Aggregate aligned+merged flowcell BAM files and mark duplicates
   # We take advantage of the tool's ability to take multiple BAM inputs and write out a single output
   # to avoid having to spend time just merging BAM files.
@@ -188,7 +193,7 @@ workflow PairedEndSingleSampleWorkflow {
       # and the merged output.
       disk_size = (md_disk_multiplier * SumFloats.total_size) + additional_disk,
       compression_level = compression_level,
-      preemptible_tries = agg_preemptible_tries,
+      preemptible_tries = if data_too_large_for_preemptibles then 0 else agg_preemptible_tries,
       docker = docker
   }
 
@@ -202,7 +207,7 @@ workflow PairedEndSingleSampleWorkflow {
       # This task spills to disk so we need space for the input bam, the output bam, and any spillage.
       disk_size = (sort_sam_disk_multiplier * agg_bam_size) + additional_disk,
       compression_level = compression_level,
-      preemptible_tries = agg_preemptible_tries,
+      preemptible_tries = if data_too_large_for_preemptibles then 0 else agg_preemptible_tries,
       docker = docker
   }
 
