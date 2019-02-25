@@ -47,7 +47,7 @@ workflow PairedEndSingleSampleWorkflow {
   File wgs_calling_interval_list
   Int haplotype_scatter_count
   Int break_bands_at_multiples_of
-  Int read_length = 250
+  Int? read_length
 
   File ref_fasta
   File ref_fasta_index
@@ -1230,7 +1230,7 @@ task CollectWgsMetrics {
   File wgs_coverage_interval_list
   File ref_fasta
   File ref_fasta_index
-  Int read_length
+  Int? read_length
   Float disk_size
   Int preemptible_tries
 
@@ -1244,7 +1244,7 @@ task CollectWgsMetrics {
       INTERVALS=${wgs_coverage_interval_list} \
       OUTPUT=${metrics_filename} \
       USE_FAST_ALGORITHM=true \
-      READ_LENGTH=${read_length}
+      READ_LENGTH=${default=250 read_length}
   }
   runtime {
     preemptible: preemptible_tries
@@ -1264,7 +1264,7 @@ task CollectRawWgsMetrics {
   File wgs_coverage_interval_list
   File ref_fasta
   File ref_fasta_index
-  Int read_length
+  Int? read_length
   Float disk_size
   Int preemptible_tries
 
@@ -1278,7 +1278,7 @@ task CollectRawWgsMetrics {
       INTERVALS=${wgs_coverage_interval_list} \
       OUTPUT=${metrics_filename} \
       USE_FAST_ALGORITHM=true \
-      READ_LENGTH=${read_length}
+      READ_LENGTH=${default=250 read_length}
   }
   runtime {
     preemptible: preemptible_tries
