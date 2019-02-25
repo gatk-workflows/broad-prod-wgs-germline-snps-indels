@@ -7,7 +7,7 @@ This WDL pipeline implements data pre-processing and initial variant calling (GV
 generation) according to the GATK Best Practices (June 2016) for germline SNP and
 Indel discovery in human whole-genome sequencing (WGS) data.
 
-*Note: PairedEndSingleSampleWf-fc.wdl is a modified version of the original workflow
+*Note: PairedEndSingleSampleWf-fc is a modified version of the original workflow
 that is easier to run on FireCloud/Terra*
 
 #### Requirements/expectations
