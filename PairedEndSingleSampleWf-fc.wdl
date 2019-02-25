@@ -256,7 +256,6 @@ workflow PairedEndSingleSampleWorkflow {
     call BaseRecalibrator {
       input:
         input_bam = SortSampleBam.output_bam,
-        input_bam_index = SortSampleBam.output_bam_index,
         recalibration_report_filename = base_file_name + ".recal_data.csv",
         sequence_group_interval = subgroup,
         dbSNP_vcf = dbSNP_vcf,
@@ -267,7 +266,7 @@ workflow PairedEndSingleSampleWorkflow {
         ref_fasta = ref_fasta,
         ref_fasta_index = ref_fasta_index,
         # We need disk to localize the sharded bam due to the scatter.
-        disk_size = agg_bam_size + ref_size + dbsnp_size + additional_disk,
+        disk_size = (agg_bam_size / bqsr_divisor) + ref_size + dbsnp_size + additional_disk,
         preemptible_tries = agg_preemptible_tries,
         docker = gatk_docker  
     }
@@ -289,7 +288,6 @@ workflow PairedEndSingleSampleWorkflow {
     call ApplyBQSR {
       input:
         input_bam = SortSampleBam.output_bam,
-        input_bam_index = SortSampleBam.output_bam_index,
         output_bam_basename = recalibrated_bam_basename,
         recalibration_report = GatherBqsrReports.output_bqsr_report,
         sequence_group_interval = subgroup,
@@ -297,7 +295,7 @@ workflow PairedEndSingleSampleWorkflow {
         ref_fasta = ref_fasta,
         ref_fasta_index = ref_fasta_index,
         # We need disk to localize the sharded bam and the sharded output due to the scatter.
-        disk_size = (agg_bam_size * 3) + ref_size + additional_disk,
+        disk_size = ((agg_bam_size * 3) / bqsr_divisor) + ref_size + additional_disk,
         compression_level = compression_level,
         preemptible_tries = agg_preemptible_tries,
         docker = gatk_docker
@@ -355,6 +353,7 @@ workflow PairedEndSingleSampleWorkflow {
         input_bam_index = GatherBamFiles.output_bam_index,
         haplotype_database_file = haplotype_database_file,
         genotypes = fingerprint_genotypes_file,
+        genotypes_index = fingerprint_genotypes_index,
         output_basename = base_file_name,
         sample = sample_name,
         disk_size = binned_qual_bam_size + additional_disk,
@@ -469,14 +468,13 @@ workflow PairedEndSingleSampleWorkflow {
       input:
         contamination = CheckContamination.contamination,
         input_bam = GatherBamFiles.output_bam,
-        input_bam_index = GatherBamFiles.output_bam_index,
         interval_list = ScatterIntervalList.out[index],
         gvcf_basename = base_file_name,
         ref_dict = ref_dict,
         ref_fasta = ref_fasta,
         ref_fasta_index = ref_fasta_index,
         # Divide the total output GVCF size and the input bam size to account for the smaller scattered input and output.
-        disk_size = (binned_qual_bam_size + GVCF_disk_size) + ref_size + additional_disk,
+        disk_size = ((binned_qual_bam_size + GVCF_disk_size) / hc_divisor) + ref_size + additional_disk,
         preemptible_tries = agg_preemptible_tries,
         docker = docker
      }
@@ -933,6 +931,7 @@ task CheckFingerprint {
   String output_basename
   File? haplotype_database_file
   File? genotypes
+  File? genotypes_index
   String sample
   Float disk_size
   Int preemptible_tries
@@ -1063,8 +1062,7 @@ task CreateSequenceGroupingTSV {
 
 # Generate Base Quality Score Recalibration (BQSR) model
 task BaseRecalibrator {
-  File input_bam
-  File input_bam_index
+  String input_bam
   String recalibration_report_filename
   Array[String] sequence_group_interval
   File dbSNP_vcf
@@ -1104,8 +1102,7 @@ task BaseRecalibrator {
 
 # Apply Base Quality Score Recalibration (BQSR) model
 task ApplyBQSR {
-  File input_bam
-  File input_bam_index
+  String input_bam
   String output_bam_basename
   File recalibration_report
   Array[String] sequence_group_interval
@@ -1504,8 +1501,7 @@ task ScatterIntervalList {
 
 # Call variants on a single sample with HaplotypeCaller to produce a GVCF
 task HaplotypeCaller {
-  File input_bam
-  File input_bam_index
+  String input_bam
   File interval_list
   String gvcf_basename
   File ref_dict
@@ -1522,12 +1518,19 @@ task HaplotypeCaller {
   # Using PrintReads is a temporary solution until we update HaploypeCaller to use GATK4. Once that is done,
   # HaplotypeCaller can stream the required intervals directly from the cloud.
   command {
+    /usr/gitc/gatk4/gatk-launch --javaOptions "-Xms2g" \
+      PrintReads \
+      -I ${input_bam} \
+      --interval_padding 500 \
+      -L ${interval_list} \
+      -O local.sharded.bam \
+    && \
     java -XX:GCTimeLimit=50 -XX:GCHeapFreeLimit=10 -Xms8000m \
       -jar /usr/gitc/GATK35.jar \
       -T HaplotypeCaller \
       -R ${ref_fasta} \
       -o ${gvcf_basename}.vcf.gz \
-      -I ${input_bam} \
+      -I local.sharded.bam \
       -L ${interval_list} \
       -ERC GVCF \
       --max_alternate_alleles 3 \
