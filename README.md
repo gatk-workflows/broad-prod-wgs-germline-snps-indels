@@ -7,6 +7,9 @@ This WDL pipeline implements data pre-processing and initial variant calling (GV
 generation) according to the GATK Best Practices (June 2016) for germline SNP and
 Indel discovery in human whole-genome sequencing (WGS) data.
 
+*Note: PairedEndSingleSampleWf-fc.wdl is a modified version of the original workflow
+that is easier to run on FireCloud/Terra*
+
 #### Requirements/expectations
 - Human whole-genome pair-end sequencing data in unmapped BAM (uBAM) format
 - One or more read groups, one per uBAM file, all belonging to a single sample (SM)
