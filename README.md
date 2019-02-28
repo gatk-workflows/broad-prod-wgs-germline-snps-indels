@@ -44,7 +44,7 @@ discovery in human whole-genome sequencing (WGS) and exome sequencing data.
 - Summary Metrics
 
 ### Software version requirements :
-- GATK 4.beta.5 for PairedSingleSampleWF. GATK4.0.11.0 for JointGenotypingWf.
+- GATK 4.beta.5 for PairedSingleSampleWF and GATK 4.0 for PairedSingleSampleWF-fc. GATK4.0.11.0 for JointGenotypingWf.
 - Picard 2.16.0-SNAPSHOT
 - Samtools 1.3.1
 - Python 2.7
@@ -74,7 +74,7 @@ discovery in human whole-genome sequencing (WGS) and exome sequencing data.
   in the leftmost column, then requesting that targetTruthSensitivity from ApplyVQSR will 
   not use an accurate filtering threshold.  This workflow has not been tested on exomes.  
   The dynamic scatter interval creating was optimized for genomes.  The scattered SNP 
-  VariantRecalibration may fail because of two few "bad" variants to build the negative model. 
+  VariantRecalibration may fail because of too few "bad" variants to build the negative model. 
   Also, apologies that the logging for SNP recalibration is overly verbose.
 - The provided JSON is meant to be a ready to use example JSON template of the workflow. It is the user’s responsibility to correctly set the reference and resource input variables using the [GATK Tool and Tutorial Documentations](https://software.broadinstitute.org/gatk/documentation/).
 - Relevant reference and resources bundles can be accessed in [Resource Bundle](https://software.broadinstitute.org/gatk/download/bundle).
