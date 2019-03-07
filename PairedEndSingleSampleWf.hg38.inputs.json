@@ -12,6 +12,7 @@
 
   "##_COMMENT3": "REFERENCES",
   "PairedEndSingleSampleWorkflow.fingerprint_genotypes_file": "gs://dsde-data-na12878-public/NA12878.hg38.reference.fingerprint.vcf",
+  "PairedEndSingleSampleWorkflow.fingerprint_genotypes_index": "gs://dsde-data-na12878-public/NA12878.hg38.reference.fingerprint.vcf.idx",
   "PairedEndSingleSampleWorkflow.contamination_sites_ud": "gs://broad-references/hg38/v0/Homo_sapiens_assembly38.contam.UD",
   "PairedEndSingleSampleWorkflow.contamination_sites_bed": "gs://broad-references/hg38/v0/Homo_sapiens_assembly38.contam.bed",
   "PairedEndSingleSampleWorkflow.contamination_sites_mu": "gs://broad-references/hg38/v0/Homo_sapiens_assembly38.contam.mu",
