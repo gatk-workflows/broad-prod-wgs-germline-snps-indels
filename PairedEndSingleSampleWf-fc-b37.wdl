@@ -67,10 +67,10 @@ workflow PairedEndSingleSampleWorkflow {
   Int preemptible_tries
   Int agg_preemptible_tries
 
-  String? gotc_docker_override
-  String gotc_docker = select_first([gotc_docker_override, "us.gcr.io/broad-gotc-prod/genomes-in-the-cloud:2.3.2-1510681135"])
-  String? gotc_path_override
-  String gotc_path = select_first([gotc_path_override, "/usr/gitc/"])
+  String? gitc_docker_override
+  String gitc_docker = select_first([gitc_docker_override, "us.gcr.io/broad-gotc-prod/genomes-in-the-cloud:2.3.2-1510681135"])
+  String? gitc_path_override
+  String gitc_path = select_first([gitc_path_override, "/usr/gitc/"])
   String? gatk_docker_override
   String gatk_docker = select_first([gatk_docker_override, "broadinstitute/gatk:4.0.11.0"])
   String? gatk_path_override
@@ -110,8 +110,8 @@ workflow PairedEndSingleSampleWorkflow {
   # by MergeBamAlignment.
   call GetBwaVersion {
     input:
-      docker = gotc_docker,
-      gotc_path = gotc_path
+      docker = gitc_docker,
+      gitc_path = gitc_path
   }
 
   # Get the size of the standard reference files as well as the additional reference files needed for BWA
@@ -135,8 +135,8 @@ workflow PairedEndSingleSampleWorkflow {
         metrics_filename = sub_sub + ".unmapped.quality_yield_metrics",
         disk_size = unmapped_bam_size + additional_disk,
         preemptible_tries = preemptible_tries,
-        docker = gotc_docker,
-        gotc_path = gotc_path
+        docker = gitc_docker,
+        gitc_path = gitc_path
     }
 
     # Map reads to reference
@@ -160,8 +160,8 @@ workflow PairedEndSingleSampleWorkflow {
         disk_size = unmapped_bam_size + bwa_ref_size + (bwa_disk_multiplier * unmapped_bam_size) + additional_disk,
         compression_level = compression_level,
         preemptible_tries = preemptible_tries,
-        docker = gotc_docker,
-        gotc_path = gotc_path
+        docker = gitc_docker,
+        gitc_path = gitc_path
     }
 
     Float mapped_bam_size = size(SamToFastqAndBwaMemAndMba.output_bam, "GB")
@@ -174,8 +174,8 @@ workflow PairedEndSingleSampleWorkflow {
         output_bam_prefix = sub_sub + ".readgroup",
         disk_size = mapped_bam_size + additional_disk,
         preemptible_tries = preemptible_tries,
-        docker = gotc_docker,
-        gotc_path = gotc_path
+        docker = gitc_docker,
+        gitc_path = gitc_path
     }
   }
 
@@ -203,8 +203,8 @@ workflow PairedEndSingleSampleWorkflow {
       disk_size = (md_disk_multiplier * SumFloats.total_size) + additional_disk,
       compression_level = compression_level,
       preemptible_tries = if data_too_large_for_preemptibles then 0 else agg_preemptible_tries,
-      docker = gotc_docker,
-      gotc_path = gotc_path
+      docker = gitc_docker,
+      gitc_path = gitc_path
   }
 
   Float agg_bam_size = size(MarkDuplicates.output_bam, "GB")
@@ -218,8 +218,8 @@ workflow PairedEndSingleSampleWorkflow {
       disk_size = (sort_sam_disk_multiplier * agg_bam_size) + additional_disk,
       compression_level = compression_level,
       preemptible_tries = if data_too_large_for_preemptibles then 0 else agg_preemptible_tries,
-      docker = gotc_docker,
-      gotc_path = gotc_path
+      docker = gitc_docker,
+      gitc_path = gitc_path
   }
 
   if (defined(haplotype_database_file)) {
@@ -232,8 +232,8 @@ workflow PairedEndSingleSampleWorkflow {
         metrics_filename = base_file_name + ".crosscheck",
         disk_size = agg_bam_size + additional_disk,
         preemptible_tries = agg_preemptible_tries,
-        docker = gotc_docker,
-        gotc_path = gotc_path
+        docker = gitc_docker,
+        gitc_path = gitc_path
     }
   }
 
@@ -331,8 +331,8 @@ workflow PairedEndSingleSampleWorkflow {
       disk_size = (2 * agg_bam_size) + additional_disk,
       compression_level = compression_level,
       preemptible_tries = agg_preemptible_tries,
-      docker = gotc_docker,
-      gotc_path = gotc_path
+      docker = gitc_docker,
+      gitc_path = gitc_path
   }
 
   #BQSR bins the qualities which makes a significantly smaller bam
@@ -349,8 +349,8 @@ workflow PairedEndSingleSampleWorkflow {
       ref_fasta_index = ref_fasta_index,
       disk_size = binned_qual_bam_size + ref_size + additional_disk,
       preemptible_tries = agg_preemptible_tries,
-      docker = gotc_docker,
-      gotc_path = gotc_path
+      docker = gitc_docker,
+      gitc_path = gitc_path
   }
 
   # QC the final BAM some more (no such thing as too much QC)
@@ -364,8 +364,8 @@ workflow PairedEndSingleSampleWorkflow {
       ref_fasta_index = ref_fasta_index,
       disk_size = binned_qual_bam_size + ref_size + additional_disk,
       preemptible_tries = agg_preemptible_tries,
-      docker = gotc_docker,
-      gotc_path = gotc_path
+      docker = gitc_docker,
+      gitc_path = gitc_path
   }
 
   if (defined(haplotype_database_file) && defined(fingerprint_genotypes_file)) {
@@ -381,8 +381,8 @@ workflow PairedEndSingleSampleWorkflow {
         sample = sample_name,
         disk_size = binned_qual_bam_size + additional_disk,
         preemptible_tries = agg_preemptible_tries,
-        docker = gotc_docker,
-        gotc_path = gotc_path
+        docker = gitc_docker,
+        gitc_path = gitc_path
     }
   }
 
@@ -398,8 +398,8 @@ workflow PairedEndSingleSampleWorkflow {
       read_length = read_length,
       disk_size = binned_qual_bam_size + ref_size + additional_disk,
       preemptible_tries = agg_preemptible_tries,
-      docker = gotc_docker,
-      gotc_path = gotc_path
+      docker = gitc_docker,
+      gitc_path = gitc_path
   }
 
   # QC the sample raw WGS metrics (common thresholds)
@@ -414,8 +414,8 @@ workflow PairedEndSingleSampleWorkflow {
       read_length = read_length,
       disk_size = binned_qual_bam_size + ref_size + additional_disk,
       preemptible_tries = agg_preemptible_tries,
-      docker = gotc_docker,
-      gotc_path = gotc_path
+      docker = gitc_docker,
+      gitc_path = gitc_path
   }
 
   # Generate a checksum per readgroup in the final BAM
@@ -426,8 +426,8 @@ workflow PairedEndSingleSampleWorkflow {
       read_group_md5_filename = recalibrated_bam_basename + ".bam.read_group_md5",
       disk_size = binned_qual_bam_size + additional_disk,
       preemptible_tries = agg_preemptible_tries,
-      docker = gotc_docker,
-      gotc_path = gotc_path
+      docker = gitc_docker,
+      gitc_path = gitc_path
   }
 
   # Convert the final merged recalibrated BAM file to CRAM format
@@ -439,7 +439,7 @@ workflow PairedEndSingleSampleWorkflow {
       output_basename = base_file_name,
       disk_size = (2 * binned_qual_bam_size) + ref_size + additional_disk,
       preemptible_tries = agg_preemptible_tries,
-      docker = gotc_docker
+      docker = gitc_docker
   }
 
   Float cram_size = size(ConvertToCram.output_cram, "GB")
@@ -468,8 +468,8 @@ workflow PairedEndSingleSampleWorkflow {
       is_outlier_data = CheckPreValidation.is_outlier_data,
       disk_size = cram_size + ref_size + additional_disk,
       preemptible_tries = agg_preemptible_tries,
-      docker = gotc_docker,
-      gotc_path = gotc_path
+      docker = gitc_docker,
+      gitc_path = gitc_path
   }
 
   # Break the calling interval_list into sub-intervals
@@ -479,8 +479,8 @@ workflow PairedEndSingleSampleWorkflow {
       interval_list = wgs_calling_interval_list,
       scatter_count = haplotype_scatter_count,
       break_bands_at_multiples_of = break_bands_at_multiples_of,
-      docker = gotc_docker,
-      gotc_path = gotc_path
+      docker = gitc_docker,
+      gitc_path = gitc_path
   }
 
   # We need disk to localize the sharded input and output due to the scatter for HaplotypeCaller.
@@ -504,8 +504,8 @@ workflow PairedEndSingleSampleWorkflow {
         # Divide the total output GVCF size and the input bam size to account for the smaller scattered input and output.
         disk_size = ((binned_qual_bam_size + GVCF_disk_size) / hc_divisor) + ref_size + additional_disk,
         preemptible_tries = agg_preemptible_tries,
-        docker = gotc_docker,
-        gotc_path = gotc_path
+        docker = gitc_docker,
+        gitc_path = gitc_path
      }
   }
 
@@ -517,8 +517,8 @@ workflow PairedEndSingleSampleWorkflow {
       output_vcf_name = final_gvcf_base_name + ".g.vcf.gz",
       disk_size = GVCF_disk_size,
       preemptible_tries = agg_preemptible_tries,
-      docker = gotc_docker,
-      gotc_path = gotc_path
+      docker = gitc_docker,
+      gitc_path = gitc_path
   }
 
   Float gvcf_size = size(MergeVCFs.output_vcf, "GB")
@@ -552,8 +552,8 @@ workflow PairedEndSingleSampleWorkflow {
       wgs_evaluation_interval_list = wgs_evaluation_interval_list,
       disk_size = gvcf_size + dbsnp_size + additional_disk,
       preemptible_tries = agg_preemptible_tries,
-      docker = gotc_docker,
-      gotc_path = gotc_path
+      docker = gitc_docker,
+      gitc_path = gitc_path
   }
 
   # Outputs that will be retained when execution is complete
@@ -626,10 +626,10 @@ task CollectQualityYieldMetrics {
   Float disk_size
   Int preemptible_tries
   String docker
-  String gotc_path
+  String gitc_path
 
   command {
-    java -Xms2000m -jar ${gotc_path}picard.jar \
+    java -Xms2000m -jar ${gitc_path}picard.jar \
       CollectQualityYieldMetrics \
       INPUT=${input_bam} \
       OQ=true \
@@ -649,12 +649,12 @@ task CollectQualityYieldMetrics {
 # Get version of BWA
 task GetBwaVersion {
   String docker
-  String gotc_path
+  String gitc_path
 
   command {
     # not setting set -o pipefail here because /bwa has a rc=1 and we dont want to allow rc=1 to succeed because
     # the sed may also fail with that error and that is something we actually want to fail on.
-    ${gotc_path}bwa 2>&1 | \
+    ${gitc_path}bwa 2>&1 | \
     grep -e '^Version' | \
     sed 's/Version: //'
   }
@@ -691,7 +691,7 @@ task SamToFastqAndBwaMemAndMba {
   Int preemptible_tries
 
   String docker
-  String gotc_path
+  String gitc_path
 
   command <<<
     set -o pipefail
@@ -700,14 +700,14 @@ task SamToFastqAndBwaMemAndMba {
     # set the bash variable needed for the command-line
     bash_ref_fasta=${ref_fasta}
     
-      java -Xms5000m -jar ${gotc_path}picard.jar \
+      java -Xms5000m -jar ${gitc_path}picard.jar \
         SamToFastq \
         INPUT=${input_bam} \
         FASTQ=/dev/stdout \
         INTERLEAVE=true \
         NON_PF=true | \
-      ${gotc_path}${bwa_commandline} /dev/stdin - 2> >(tee ${output_bam_basename}.bwa.stderr.log >&2) | \
-      java -Dsamjdk.compression_level=${compression_level} -Xms3000m -jar ${gotc_path}picard.jar \
+      ${gitc_path}${bwa_commandline} /dev/stdin - 2> >(tee ${output_bam_basename}.bwa.stderr.log >&2) | \
+      java -Dsamjdk.compression_level=${compression_level} -Xms3000m -jar ${gitc_path}picard.jar \
         MergeBamAlignment \
         VALIDATION_STRINGENCY=SILENT \
         EXPECTED_ORIENTATIONS=FR \
@@ -757,10 +757,10 @@ task SortSam {
   Int compression_level
   Float disk_size
   String docker
-  String gotc_path
+  String gitc_path
 
   command {
-    java -Dsamjdk.compression_level=${compression_level} -Xms4000m -jar ${gotc_path}picard.jar \
+    java -Dsamjdk.compression_level=${compression_level} -Xms4000m -jar ${gitc_path}picard.jar \
       SortSam \
       INPUT=${input_bam} \
       OUTPUT=${output_bam_basename}.bam \
@@ -791,10 +791,10 @@ task CollectUnsortedReadgroupBamQualityMetrics {
   Int preemptible_tries
   Float disk_size
   String docker
-  String gotc_path
+  String gitc_path
 
   command {
-    java -Xms5000m -jar ${gotc_path}picard.jar \
+    java -Xms5000m -jar ${gitc_path}picard.jar \
       CollectMultipleMetrics \
       INPUT=${input_bam} \
       OUTPUT=${output_bam_prefix} \
@@ -839,10 +839,10 @@ task CollectReadgroupBamQualityMetrics {
   Int preemptible_tries
   Float disk_size
   String docker
-  String gotc_path
+  String gitc_path
 
   command {
-    java -Xms5000m -jar ${gotc_path}picard.jar \
+    java -Xms5000m -jar ${gitc_path}picard.jar \
       CollectMultipleMetrics \
       INPUT=${input_bam} \
       REFERENCE_SEQUENCE=${ref_fasta} \
@@ -879,10 +879,10 @@ task CollectAggregationMetrics {
   Int preemptible_tries
   Float disk_size
   String docker
-  String gotc_path
+  String gitc_path
 
   command {
-    java -Xms5000m -jar ${gotc_path}picard.jar \
+    java -Xms5000m -jar ${gitc_path}picard.jar \
       CollectMultipleMetrics \
       INPUT=${input_bam} \
       REFERENCE_SEQUENCE=${ref_fasta} \
@@ -932,12 +932,12 @@ task CrossCheckFingerprints {
   Float disk_size
   Int preemptible_tries
   String docker
-  String gotc_path
+  String gitc_path
 
   command <<<
     java -Dsamjdk.buffer_size=131072 \
       -XX:GCTimeLimit=50 -XX:GCHeapFreeLimit=10 -Xms2000m \
-      -jar ${gotc_path}picard.jar \
+      -jar ${gitc_path}picard.jar \
       CrosscheckReadGroupFingerprints \
       OUTPUT=${metrics_filename} \
       HAPLOTYPE_MAP=${haplotype_database_file} \
@@ -968,12 +968,12 @@ task CheckFingerprint {
   Float disk_size
   Int preemptible_tries
   String docker
-  String gotc_path
+  String gitc_path
 
   command <<<
     java -Dsamjdk.buffer_size=131072 \
       -XX:GCTimeLimit=50 -XX:GCHeapFreeLimit=10 -Xms1024m  \
-      -jar ${gotc_path}picard.jar \
+      -jar ${gitc_path}picard.jar \
       CheckFingerprint \
       INPUT=${input_bam} \
       OUTPUT=${output_basename} \
@@ -1004,7 +1004,7 @@ task MarkDuplicates {
   Int compression_level
   Int preemptible_tries
   String docker
-  String gotc_path
+  String gitc_path
 
   # The program default for READ_NAME_REGEX is appropriate in nearly every case.
   # Sometimes we wish to supply "null" in order to turn off optical duplicate detection
@@ -1015,7 +1015,7 @@ task MarkDuplicates {
  # This works because the output of BWA is query-grouped and therefore, so is the output of MergeBamAlignment.
  # While query-grouped isn't actually query-sorted, it's good enough for MarkDuplicates with ASSUME_SORT_ORDER="queryname"
   command {
-    java -Dsamjdk.compression_level=${compression_level} -Xms4000m -jar ${gotc_path}picard.jar \
+    java -Dsamjdk.compression_level=${compression_level} -Xms4000m -jar ${gitc_path}picard.jar \
       MarkDuplicates \
       INPUT=${sep=' INPUT=' input_bams} \
       OUTPUT=${output_bam_basename}.bam \
@@ -1211,10 +1211,10 @@ task GatherBamFiles {
   Int compression_level
   Int preemptible_tries
   String docker
-  String gotc_path
+  String gitc_path
 
   command {
-    java -Dsamjdk.compression_level=${compression_level} -Xms2000m -jar ${gotc_path}picard.jar \
+    java -Dsamjdk.compression_level=${compression_level} -Xms2000m -jar ${gitc_path}picard.jar \
       GatherBamFiles \
       INPUT=${sep=' INPUT=' input_bams} \
       OUTPUT=${output_bam_basename}.bam \
@@ -1293,10 +1293,10 @@ task ValidateSamFile {
   Float disk_size
   Int preemptible_tries
   String docker
-  String gotc_path
+  String gitc_path
 
   command {
-    java -Xms6000m -jar ${gotc_path}picard.jar \
+    java -Xms6000m -jar ${gitc_path}picard.jar \
       ValidateSamFile \
       INPUT=${input_bam} \
       OUTPUT=${report_filename} \
@@ -1330,10 +1330,10 @@ task CollectWgsMetrics {
   Float disk_size
   Int preemptible_tries
   String docker
-  String gotc_path
+  String gitc_path
 
   command {
-    java -Xms2000m -jar ${gotc_path}picard.jar \
+    java -Xms2000m -jar ${gitc_path}picard.jar \
       CollectWgsMetrics \
       INPUT=${input_bam} \
       VALIDATION_STRINGENCY=SILENT \
@@ -1367,10 +1367,10 @@ task CollectRawWgsMetrics {
   Float disk_size
   Int preemptible_tries
   String docker
-  String gotc_path
+  String gitc_path
 
   command {
-    java -Xms2000m -jar ${gotc_path}picard.jar \
+    java -Xms2000m -jar ${gitc_path}picard.jar \
       CollectRawWgsMetrics \
       INPUT=${input_bam} \
       VALIDATION_STRINGENCY=SILENT \
@@ -1400,10 +1400,10 @@ task CalculateReadGroupChecksum {
   Float disk_size
   Int preemptible_tries
   String docker
-  String gotc_path
+  String gitc_path
 
   command {
-    java -Xms1000m -jar ${gotc_path}picard.jar \
+    java -Xms1000m -jar ${gitc_path}picard.jar \
       CalculateReadGroupChecksum \
       INPUT=${input_bam} \
       OUTPUT=${read_group_md5_filename}
@@ -1488,7 +1488,7 @@ task CheckContamination {
     preemptible: preemptible_tries
     memory: "2 GB"
     disks: "local-disk " + sub(disk_size, "\\..*", "") + " HDD"
-    docker: "us.gcr.io/broad-gotc-prod/verify-bam-id:c8a66425c312e5f8be46ab0c41f8d7a1942b6e16-1500298351"
+    docker: "us.gcr.io/broad-gitc-prod/verify-bam-id:c8a66425c312e5f8be46ab0c41f8d7a1942b6e16-1500298351"
   }
   output {
     File selfSM = "${output_prefix}.selfSM"
@@ -1504,12 +1504,12 @@ task ScatterIntervalList {
   Int scatter_count
   Int break_bands_at_multiples_of
   String docker
-  String gotc_path
+  String gitc_path
 
   command <<<
     set -e
     mkdir out
-    java -Xms1g -jar ${gotc_path}picard.jar \
+    java -Xms1g -jar ${gitc_path}picard.jar \
       IntervalListTools \
       SCATTER_COUNT=${scatter_count} \
       SUBDIVISION_MODE=BALANCING_WITHOUT_INTERVAL_SUBDIVISION_WITH_OVERFLOW \
@@ -1552,7 +1552,7 @@ task HaplotypeCaller {
   Float disk_size
   Int preemptible_tries
   String docker
-  String gotc_path
+  String gitc_path
 
   # We use interval_padding 500 below to make sure that the HaplotypeCaller has context on both sides around
   # the interval because the assembly uses them.
@@ -1560,7 +1560,7 @@ task HaplotypeCaller {
   # Using PrintReads is a temporary solution until we update HaploypeCaller to use GATK4. Once that is done,
   # HaplotypeCaller can stream the required intervals directly from the cloud.
   command {
-    ${gotc_path}gatk4/gatk-launch --javaOptions "-Xms2g" \
+    ${gitc_path}gatk4/gatk-launch --javaOptions "-Xms2g" \
       PrintReads \
       -I ${input_bam} \
       --interval_padding 500 \
@@ -1568,7 +1568,7 @@ task HaplotypeCaller {
       -O local.sharded.bam \
     && \
     java -XX:GCTimeLimit=50 -XX:GCHeapFreeLimit=10 -Xms8000m \
-      -jar ${gotc_path}GATK35.jar \
+      -jar ${gitc_path}GATK35.jar \
       -T HaplotypeCaller \
       -R ${ref_fasta} \
       -o ${gvcf_basename}.vcf.gz \
@@ -1602,12 +1602,12 @@ task MergeVCFs {
   Int disk_size
   Int preemptible_tries
   String docker
-  String gotc_path
+  String gitc_path
 
   # Using MergeVcfs instead of GatherVcfs so we can create indices
   # See https://github.com/broadinstitute/picard/issues/789 for relevant GatherVcfs ticket
   command {
-    java -Xms2000m -jar ${gotc_path}picard.jar \
+    java -Xms2000m -jar ${gitc_path}picard.jar \
       MergeVcfs \
       INPUT=${sep=' INPUT=' input_vcfs} \
       OUTPUT=${output_vcf_name}
@@ -1669,10 +1669,10 @@ task CollectGvcfCallingMetrics {
   Float disk_size
   Int preemptible_tries
   String docker
-  String gotc_path
+  String gitc_path
 
   command {
-    java -Xms2000m -jar ${gotc_path}picard.jar \
+    java -Xms2000m -jar ${gitc_path}picard.jar \
       CollectVariantCallingMetrics \
       INPUT=${input_vcf} \
       OUTPUT=${metrics_basename} \
