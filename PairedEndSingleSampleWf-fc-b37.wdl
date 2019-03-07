@@ -13,7 +13,6 @@
 ## - - reads are provided in query-sorted order
 ## - - all reads must have an RG tag
 ## - GVCF output names must end in ".g.vcf.gz"
-## - Reference genome must be Hg38 with ALT contigs
 ##
 ## Runtime parameters are optimized for Broad's Google Cloud Platform implementation.
 ## For program versions, see docker containers.
