@@ -258,7 +258,7 @@ workflow PairedEndSingleSampleWorkflow {
         ref_fasta = ref_fasta,
         ref_fasta_index = ref_fasta_index,
         # We need disk to localize the sharded bam due to the scatter.
-        disk_size = (agg_bam_size / bqsr_divisor) + ref_size + dbsnp_size + additional_disk,
+        disk_size = agg_bam_size + ref_size + dbsnp_size + additional_disk,
         preemptible_tries = agg_preemptible_tries
     }
   }
@@ -285,7 +285,7 @@ workflow PairedEndSingleSampleWorkflow {
         ref_fasta = ref_fasta,
         ref_fasta_index = ref_fasta_index,
         # We need disk to localize the sharded bam and the sharded output due to the scatter.
-        disk_size = ((agg_bam_size * 3) / bqsr_divisor) + ref_size + additional_disk,
+        disk_size = agg_bam_size + (agg_bam_size  / bqsr_divisor) + ref_size + additional_disk,
         compression_level = compression_level,
         preemptible_tries = agg_preemptible_tries
     }
