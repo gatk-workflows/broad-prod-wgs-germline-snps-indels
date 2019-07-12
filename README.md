@@ -1,6 +1,10 @@
 # prod-wgs-germline-snps-indels
+**IMPORTANT NOTE! The PairedSingleSample workflow in this repo is outdated 
+and is no longer being used in production at Broad. For the latest production version
+please visit the [five-dollar-genome-analysis-pipeline](https://github.com/gatk-workflows/five-dollar-genome-analysis-pipeline/tree/master) repo.**
+
 ### Purpose : 
-Workflows used in production at Broad for germline short variant discovery in WGS data. 
+Workflows used for germline short variant discovery in WGS data. 
 
 ### PairedSingleSampleWF :
 This WDL pipeline implements data pre-processing and initial variant calling (GVCF
