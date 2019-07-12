@@ -125,15 +125,13 @@ workflow PairedEndSingleSampleWorkflow {
 
     Float unmapped_bam_size = size(unmapped_bam, "GB")
 
-    String sub_strip_path = "gs://.*/"
-    String sub_strip_unmapped = unmapped_bam_suffix + "$"
-    String sub_sub = sub(sub(unmapped_bam, sub_strip_path, ""), sub_strip_unmapped, "")
+    String unmapped_bam_basename = basename(unmapped_bam, unmapped_bam_suffix)
 
     # QC the unmapped BAM
     call CollectQualityYieldMetrics {
       input:
         input_bam = unmapped_bam,
-        metrics_filename = sub_sub + ".unmapped.quality_yield_metrics",
+        metrics_filename = unmapped_bam_basename + ".unmapped.quality_yield_metrics",
         disk_size = unmapped_bam_size + additional_disk,
         preemptible_tries = preemptible_tries,
         docker = gitc_docker,
@@ -145,7 +143,7 @@ workflow PairedEndSingleSampleWorkflow {
       input:
         input_bam = unmapped_bam,
         bwa_commandline = bwa_commandline,
-        output_bam_basename = sub_sub + ".aligned.unsorted",
+        output_bam_basename = unmapped_bam_basename + ".aligned.unsorted",
         ref_fasta = ref_fasta,
         ref_fasta_index = ref_fasta_index,
         ref_dict = ref_dict,
@@ -172,7 +170,7 @@ workflow PairedEndSingleSampleWorkflow {
     call CollectUnsortedReadgroupBamQualityMetrics {
       input:
         input_bam = SamToFastqAndBwaMemAndMba.output_bam,
-        output_bam_prefix = sub_sub + ".readgroup",
+        output_bam_prefix = unmapped_bam_basename + ".readgroup",
         disk_size = mapped_bam_size + additional_disk,
         preemptible_tries = preemptible_tries,
         docker = gitc_docker,
